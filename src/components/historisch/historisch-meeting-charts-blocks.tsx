@@ -34,6 +34,19 @@ export const CHANNEL_DISPLAY_ORDER: { key: string; label: string }[] = [
   { key: "referral", label: "Verwijzing" },
 ];
 
+/** Thema voor presentaties in F&L-huisstijl (kleur en cards volgens design system). */
+export type HistorischChartTheme = "default" | "fnl";
+
+function chartGridStroke(theme: HistorischChartTheme): string {
+  return theme === "fnl" ? "#E5ECF2" : "#e2e8f0";
+}
+
+/** Presentatie (fnl): blauw + warm accent zodat series duidelijk te onderscheiden zijn. */
+const FNL_BLUE = "#004077";
+const FNL_ORANGE = "#C25621";
+const FNL_GREEN = "#287D52";
+const FNL_TEAL = "#0F766E";
+
 export function channelAbonneren(
   summary: HistorischTopArticlesOriginReport["january2024"]["summary"],
   gaKey: string
@@ -68,6 +81,7 @@ export function ChartShell({
   titleClassName = "text-xs font-semibold text-slate-900",
   captionClassName = "mt-1 leading-snug text-slate-600",
   downloadLabel = "PNG",
+  chartTheme = "default",
 }: {
   title: string;
   caption: string;
@@ -80,19 +94,22 @@ export function ChartShell({
   captionClassName?: string;
   /** Tekst op de downloadknop (bijv. “Download PNG” op presentatiepagina). */
   downloadLabel?: string;
+  chartTheme?: HistorischChartTheme;
 }) {
   const h = chartHeight;
+  const figureBase =
+    chartTheme === "fnl"
+      ? "break-inside-avoid rounded-lg border border-[rgba(0,30,59,0.12)] bg-white p-4 shadow-[0_1px_2px_rgba(0,30,59,0.04),0_8px_24px_rgba(0,30,59,0.06)]"
+      : "break-inside-avoid rounded-xl border border-slate-200 bg-white p-4 shadow-sm";
+  const btnBase =
+    chartTheme === "fnl"
+      ? "shrink-0 rounded border border-[#004077] bg-white px-2.5 py-1 text-xs font-semibold text-[#004077] transition-colors hover:bg-[#DCE7F0] active:translate-y-px print:hidden"
+      : "shrink-0 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 print:hidden";
   return (
-    <figure
-      className={`break-inside-avoid rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}
-    >
+    <figure className={`${figureBase} ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <figcaption className={titleClassName}>{title}</figcaption>
-        <button
-          type="button"
-          onClick={onDownloadPng}
-          className="shrink-0 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 print:hidden"
-        >
+        <button type="button" onClick={onDownloadPng} className={btnBase}>
           {downloadLabel}
         </button>
       </div>
@@ -235,6 +252,7 @@ export function ChartBlockPaywallDual({
   xTick = 10,
   filename,
   downloadLabel,
+  chartTheme = "default",
 }: {
   data1: ReturnType<typeof useMeetingChartData>["data1"];
   chartRef: RefObject<HTMLDivElement | null>;
@@ -245,7 +263,13 @@ export function ChartBlockPaywallDual({
   xTick?: number;
   filename: string;
   downloadLabel?: string;
+  chartTheme?: HistorischChartTheme;
 }) {
+  const grid = chartGridStroke(chartTheme);
+  const cPay = chartTheme === "fnl" ? FNL_BLUE : "#2563eb";
+  const cAbo = chartTheme === "fnl" ? FNL_ORANGE : "#c026d3";
+  const titleCls = chartTheme === "fnl" ? "text-sm font-semibold text-[#004077]" : "text-sm font-semibold text-slate-900";
+  const capCls = chartTheme === "fnl" ? "mt-1 leading-snug text-[#2B3D52]" : "mt-1 leading-snug text-slate-600";
   return (
     <ChartShell
       title={title}
@@ -253,12 +277,14 @@ export function ChartBlockPaywallDual({
       chartRef={chartRef}
       chartHeight={chartHeight}
       onDownloadPng={onDownloadPng}
-      titleClassName="text-sm font-semibold text-slate-900"
+      titleClassName={titleCls}
+      captionClassName={capCls}
       downloadLabel={downloadLabel}
+      chartTheme={chartTheme}
     >
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data1} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke={grid} />
           <XAxis dataKey="yearMonth" tick={{ fontSize: xTick }} {...defX} />
           <YAxis
             yAxisId="left"
@@ -286,7 +312,7 @@ export function ChartBlockPaywallDual({
             type="monotone"
             dataKey="paywall_view"
             name="Paywallweergaven"
-            stroke="#2563eb"
+            stroke={cPay}
             dot={false}
             strokeWidth={2}
           />
@@ -295,7 +321,7 @@ export function ChartBlockPaywallDual({
             type="monotone"
             dataKey="paywall_abonneren"
             name="Abonneerkliks"
-            stroke="#c026d3"
+            stroke={cAbo}
             dot={false}
             strokeWidth={2}
           />
@@ -315,6 +341,7 @@ export function ChartBlockScreenPageviewsPaywall({
   caption,
   xTick = 10,
   downloadLabel,
+  chartTheme = "default",
 }: {
   dataPvPw: ReturnType<typeof useMeetingChartData>["dataPvPw"];
   chartRef: RefObject<HTMLDivElement | null>;
@@ -324,7 +351,13 @@ export function ChartBlockScreenPageviewsPaywall({
   caption: string;
   xTick?: number;
   downloadLabel?: string;
+  chartTheme?: HistorischChartTheme;
 }) {
+  const grid = chartGridStroke(chartTheme);
+  const cPv = chartTheme === "fnl" ? FNL_BLUE : "#0f766e";
+  const cPw = chartTheme === "fnl" ? FNL_ORANGE : "#1d4ed8";
+  const titleCls = chartTheme === "fnl" ? "text-sm font-semibold text-[#004077]" : "text-sm font-semibold text-slate-900";
+  const capCls = chartTheme === "fnl" ? "mt-1 leading-snug text-[#2B3D52]" : "mt-1 leading-snug text-slate-600";
   return (
     <ChartShell
       title={title}
@@ -332,12 +365,14 @@ export function ChartBlockScreenPageviewsPaywall({
       chartRef={chartRef}
       chartHeight={chartHeight}
       onDownloadPng={onDownloadPng}
-      titleClassName="text-sm font-semibold text-slate-900"
+      titleClassName={titleCls}
+      captionClassName={capCls}
       downloadLabel={downloadLabel}
+      chartTheme={chartTheme}
     >
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={dataPvPw} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke={grid} />
           <XAxis dataKey="yearMonth" tick={{ fontSize: xTick }} {...defX} />
           <YAxis
             yAxisId="left"
@@ -365,7 +400,7 @@ export function ChartBlockScreenPageviewsPaywall({
             type="monotone"
             dataKey="screenPageViews"
             name="Paginaweergaven"
-            stroke="#0f766e"
+            stroke={cPv}
             dot={false}
             strokeWidth={2}
           />
@@ -374,7 +409,7 @@ export function ChartBlockScreenPageviewsPaywall({
             type="monotone"
             dataKey="paywall_view"
             name="Paywallweergaven"
-            stroke="#1d4ed8"
+            stroke={cPw}
             dot={false}
             strokeWidth={2}
           />
@@ -394,6 +429,7 @@ export function ChartBlockPaywallRatio({
   xTick = 10,
   filename,
   downloadLabel,
+  chartTheme = "default",
 }: {
   data2: ReturnType<typeof useMeetingChartData>["data2"];
   chartRef: RefObject<HTMLDivElement | null>;
@@ -404,7 +440,26 @@ export function ChartBlockPaywallRatio({
   xTick?: number;
   filename: string;
   downloadLabel?: string;
+  chartTheme?: HistorischChartTheme;
 }) {
+  const grid = chartGridStroke(chartTheme);
+  const cRatio = chartTheme === "fnl" ? FNL_GREEN : "#0d9488";
+  const titleCls = chartTheme === "fnl" ? "text-sm font-semibold text-[#004077]" : "text-sm font-semibold text-slate-900";
+  const capCls = chartTheme === "fnl" ? "mt-1 leading-snug text-[#2B3D52]" : "mt-1 leading-snug text-slate-600";
+
+  const ratioChartData = useMemo(() => {
+    if (chartTheme === "fnl") {
+      return data2.map((d) => ({
+        yearMonth: d.yearMonth,
+        paywall_abonneer_ratio:
+          d.paywall_abonneer_ratio == null ? null : d.paywall_abonneer_ratio * 100,
+      }));
+    }
+    return data2;
+  }, [data2, chartTheme]);
+
+  const lineName = chartTheme === "fnl" ? "Abonneerratio (%)" : "Abonneerratio";
+
   return (
     <ChartShell
       title={title}
@@ -412,23 +467,42 @@ export function ChartBlockPaywallRatio({
       chartRef={chartRef}
       chartHeight={chartHeight}
       onDownloadPng={onDownloadPng}
-      titleClassName="text-sm font-semibold text-slate-900"
+      titleClassName={titleCls}
+      captionClassName={capCls}
       downloadLabel={downloadLabel}
+      chartTheme={chartTheme}
     >
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data2} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <LineChart data={ratioChartData} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={grid} />
           <XAxis dataKey="yearMonth" tick={{ fontSize: xTick }} {...defX} />
-          <YAxis tick={{ fontSize: xTick }} width={48} />
+          <YAxis
+            tick={{ fontSize: xTick }}
+            width={52}
+            tickFormatter={(v) =>
+              chartTheme === "fnl"
+                ? `${Number(v).toLocaleString("nl-NL", { maximumFractionDigits: 2 })}%`
+                : NRatio(Number(v))
+            }
+          />
           <Tooltip
-            formatter={(value) => [NRatio(typeof value === "number" ? value : Number(value)), "Ratio"]}
+            formatter={(value) => {
+              const n = typeof value === "number" ? value : Number(value);
+              if (chartTheme === "fnl") {
+                return [
+                  `${n.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
+                  lineName,
+                ];
+              }
+              return [NRatio(n), lineName];
+            }}
           />
           <Legend wrapperStyle={{ fontSize: 12 }} />
           <Line
             type="monotone"
             dataKey="paywall_abonneer_ratio"
-            name="Abonneerratio"
-            stroke="#0d9488"
+            name={lineName}
+            stroke={cRatio}
             dot={false}
             strokeWidth={2}
             connectNulls={false}
@@ -448,6 +522,9 @@ export function ChartBlockIndex({
   caption,
   xTick = 10,
   downloadLabel,
+  chartTheme = "default",
+  legendLine1Name,
+  legendLine2Name,
 }: {
   data3: ReturnType<typeof useMeetingChartData>["data3"];
   chartRef: RefObject<HTMLDivElement | null>;
@@ -457,7 +534,19 @@ export function ChartBlockIndex({
   caption: string;
   xTick?: number;
   downloadLabel?: string;
+  chartTheme?: HistorischChartTheme;
+  /** Default: "Index nieuwe gebruikers" */
+  legendLine1Name?: string;
+  /** Default: "Index paywallweergaven" */
+  legendLine2Name?: string;
 }) {
+  const grid = chartGridStroke(chartTheme);
+  const c1 = chartTheme === "fnl" ? FNL_BLUE : "#ea580c";
+  const c2 = chartTheme === "fnl" ? FNL_ORANGE : "#4338ca";
+  const titleCls = chartTheme === "fnl" ? "text-sm font-semibold text-[#004077]" : "text-sm font-semibold text-slate-900";
+  const capCls = chartTheme === "fnl" ? "mt-1 leading-snug text-[#2B3D52]" : "mt-1 leading-snug text-slate-600";
+  const name1 = legendLine1Name ?? "Index nieuwe gebruikers";
+  const name2 = legendLine2Name ?? "Index paywallweergaven";
   return (
     <ChartShell
       title={title}
@@ -465,12 +554,14 @@ export function ChartBlockIndex({
       chartRef={chartRef}
       chartHeight={chartHeight}
       onDownloadPng={onDownloadPng}
-      titleClassName="text-sm font-semibold text-slate-900"
+      titleClassName={titleCls}
+      captionClassName={capCls}
       downloadLabel={downloadLabel}
+      chartTheme={chartTheme}
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data3} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke={grid} />
           <XAxis dataKey="yearMonth" tick={{ fontSize: xTick }} {...defX} />
           <YAxis tick={{ fontSize: xTick }} width={48} />
           <Tooltip
@@ -480,8 +571,8 @@ export function ChartBlockIndex({
           <Line
             type="monotone"
             dataKey="index_newUsers"
-            name="Index nieuwe gebruikers"
-            stroke="#ea580c"
+            name={name1}
+            stroke={c1}
             dot={false}
             strokeWidth={2}
             connectNulls
@@ -489,8 +580,8 @@ export function ChartBlockIndex({
           <Line
             type="monotone"
             dataKey="index_paywall_view"
-            name="Index paywallweergaven"
-            stroke="#4338ca"
+            name={name2}
+            stroke={c2}
             dot={false}
             strokeWidth={2}
             connectNulls
@@ -510,6 +601,7 @@ export function ChartBlockNewsletter1k({
   caption,
   xTick = 10,
   downloadLabel,
+  chartTheme = "default",
 }: {
   data4: ReturnType<typeof useMeetingChartData>["data4"];
   chartRef: RefObject<HTMLDivElement | null>;
@@ -519,7 +611,12 @@ export function ChartBlockNewsletter1k({
   caption: string;
   xTick?: number;
   downloadLabel?: string;
+  chartTheme?: HistorischChartTheme;
 }) {
+  const grid = chartGridStroke(chartTheme);
+  const cNb = chartTheme === "fnl" ? FNL_GREEN : "#15803d";
+  const titleCls = chartTheme === "fnl" ? "text-sm font-semibold text-[#004077]" : "text-sm font-semibold text-slate-900";
+  const capCls = chartTheme === "fnl" ? "mt-1 leading-snug text-[#2B3D52]" : "mt-1 leading-snug text-slate-600";
   return (
     <ChartShell
       title={title}
@@ -527,12 +624,14 @@ export function ChartBlockNewsletter1k({
       chartRef={chartRef}
       chartHeight={chartHeight}
       onDownloadPng={onDownloadPng}
-      titleClassName="text-sm font-semibold text-slate-900"
+      titleClassName={titleCls}
+      captionClassName={capCls}
       downloadLabel={downloadLabel}
+      chartTheme={chartTheme}
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data4} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke={grid} />
           <XAxis dataKey="yearMonth" tick={{ fontSize: xTick }} {...defX} />
           <YAxis tick={{ fontSize: xTick }} width={44} />
           <Tooltip
@@ -546,7 +645,7 @@ export function ChartBlockNewsletter1k({
             type="monotone"
             dataKey="nieuwsbrief_per_1000_pageviews"
             name="Per 1.000 paginaweergaven"
-            stroke="#15803d"
+            stroke={cNb}
             dot={false}
             strokeWidth={2}
             connectNulls
@@ -566,6 +665,7 @@ export function ChartBlockNewsletterDevice({
   caption,
   xTick = 10,
   downloadLabel,
+  chartTheme = "default",
 }: {
   data5: ReturnType<typeof useMeetingChartData>["data5"];
   chartRef: RefObject<HTMLDivElement | null>;
@@ -575,7 +675,14 @@ export function ChartBlockNewsletterDevice({
   caption: string;
   xTick?: number;
   downloadLabel?: string;
+  chartTheme?: HistorischChartTheme;
 }) {
+  const grid = chartGridStroke(chartTheme);
+  const cD = chartTheme === "fnl" ? FNL_BLUE : "#1e40af";
+  const cM = chartTheme === "fnl" ? FNL_ORANGE : "#b45309";
+  const cT = chartTheme === "fnl" ? FNL_TEAL : "#6b21a8";
+  const titleCls = chartTheme === "fnl" ? "text-sm font-semibold text-[#004077]" : "text-sm font-semibold text-slate-900";
+  const capCls = chartTheme === "fnl" ? "mt-1 leading-snug text-[#2B3D52]" : "mt-1 leading-snug text-slate-600";
   return (
     <ChartShell
       title={title}
@@ -583,12 +690,14 @@ export function ChartBlockNewsletterDevice({
       chartRef={chartRef}
       chartHeight={chartHeight}
       onDownloadPng={onDownloadPng}
-      titleClassName="text-sm font-semibold text-slate-900"
+      titleClassName={titleCls}
+      captionClassName={capCls}
       downloadLabel={downloadLabel}
+      chartTheme={chartTheme}
     >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data5} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke={grid} />
           <XAxis dataKey="yearMonth" tick={{ fontSize: xTick }} {...defX} />
           <YAxis tick={{ fontSize: xTick }} width={44} />
           <Tooltip
@@ -599,7 +708,7 @@ export function ChartBlockNewsletterDevice({
             type="monotone"
             dataKey="desktop"
             name="Desktop"
-            stroke="#1e40af"
+            stroke={cD}
             dot={false}
             strokeWidth={2}
             connectNulls
@@ -608,7 +717,7 @@ export function ChartBlockNewsletterDevice({
             type="monotone"
             dataKey="mobile"
             name="Mobiel"
-            stroke="#b45309"
+            stroke={cM}
             dot={false}
             strokeWidth={2}
             connectNulls
@@ -617,7 +726,7 @@ export function ChartBlockNewsletterDevice({
             type="monotone"
             dataKey="tablet"
             name="Tablet"
-            stroke="#6b21a8"
+            stroke={cT}
             dot={false}
             strokeWidth={2}
             connectNulls
@@ -639,6 +748,7 @@ export function ChartBlockChannelBarsSingle({
   onDownloadPng,
   caption,
   downloadLabel = "PNG",
+  chartTheme = "default",
 }: {
   data: ChannelBarRow[];
   chartRef: RefObject<HTMLDivElement | null>;
@@ -648,24 +758,33 @@ export function ChartBlockChannelBarsSingle({
   onDownloadPng: () => void;
   caption: string;
   downloadLabel?: string;
+  chartTheme?: HistorischChartTheme;
 }) {
+  const wrap =
+    chartTheme === "fnl"
+      ? "rounded-lg border border-[rgba(0,30,59,0.12)] bg-white p-3 shadow-[0_1px_2px_rgba(0,30,59,0.04),0_8px_24px_rgba(0,30,59,0.06)]"
+      : "rounded-xl border border-slate-200 bg-white p-3";
+  const titleCls = chartTheme === "fnl" ? "text-sm font-semibold text-[#004077]" : "text-sm font-semibold text-slate-900";
+  const capCls = chartTheme === "fnl" ? "text-sm text-[#2B3D52]" : "text-sm text-slate-600";
+  const subCls = chartTheme === "fnl" ? "text-center text-xs font-medium text-[#2B3D52]" : "text-center text-xs font-medium text-slate-700";
+  const btnCls =
+    chartTheme === "fnl"
+      ? "rounded border border-[#004077] bg-white px-2 py-1 text-xs font-semibold text-[#004077] hover:bg-[#DCE7F0] active:translate-y-px"
+      : "rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700";
+  const grid = chartGridStroke(chartTheme);
   return (
-    <div ref={chartRef} className="rounded-xl border border-slate-200 bg-white p-3">
+    <div ref={chartRef} className={wrap}>
       <div className="flex justify-between gap-2 print:hidden">
-        <p className="text-sm font-semibold text-slate-900">{monthTitle}</p>
-        <button
-          type="button"
-          onClick={onDownloadPng}
-          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700"
-        >
+        <p className={titleCls}>{monthTitle}</p>
+        <button type="button" onClick={onDownloadPng} className={btnCls}>
           {downloadLabel}
         </button>
       </div>
-      <p className="mt-1 text-sm text-slate-600">{caption}</p>
-      <p className="mb-2 text-center text-xs font-medium text-slate-700">{monthTitle}</p>
+      <p className={`mt-1 ${capCls}`}>{caption}</p>
+      <p className={`mb-2 ${subCls}`}>{monthTitle}</p>
       <ResponsiveContainer width="100%" height={barHeight}>
         <BarChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 40 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke={grid} />
           <XAxis dataKey="kanaal" tick={{ fontSize: 10 }} interval={0} angle={-28} textAnchor="end" height={52} />
           <YAxis tick={{ fontSize: 10 }} width={40} />
           <Tooltip

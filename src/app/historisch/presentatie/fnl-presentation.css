@@ -1,0 +1,238 @@
+/* Presentatie: kleuren/utilities F&L-achtig; lettertype wisselbaar via layout (zie --font-presentatie-sans). */
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+
+.fnl-presentation {
+  --fnl-blue: #004077;
+  --fnl-blue-dark: #002f58;
+  --fnl-blue-deep: #001e3b;
+  --fnl-blue-soft: #dce7f0;
+  --fnl-blue-pale: #f0f4f8;
+  --fnl-paper: #ffffff;
+  --fnl-ink: #001e3b;
+  --fnl-ink-2: #2b3d52;
+  --fnl-ink-3: #5c6b7c;
+  --fnl-ink-12: rgba(0, 30, 59, 0.12);
+  --fnl-shadow-card: 0 1px 2px rgba(0, 30, 59, 0.04), 0 8px 24px rgba(0, 30, 59, 0.06);
+  --fnl-shadow-hover: 0 1px 2px rgba(0, 30, 59, 0.06), 0 14px 32px rgba(0, 30, 59, 0.1);
+  --fnl-ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --fnl-dur: 150ms;
+
+  background: var(--fnl-paper);
+  color: var(--fnl-ink-2);
+  font-family: var(--font-presentatie-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.fnl-presentation .fnl-slide-title {
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  font-weight: 600;
+  color: var(--fnl-blue);
+  letter-spacing: -0.01em;
+  line-height: 1.12;
+}
+
+.fnl-presentation .fnl-slide h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--fnl-blue-deep);
+  margin-bottom: 0.5rem;
+}
+
+.fnl-presentation .fnl-display {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--fnl-blue);
+}
+
+.fnl-presentation .fnl-meta {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fnl-ink-3);
+}
+
+.fnl-presentation .fnl-lede {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--fnl-ink);
+  line-height: 1.6;
+}
+
+.fnl-presentation .fnl-link {
+  color: var(--fnl-blue);
+  text-decoration: none;
+  border-bottom: 1px solid var(--fnl-blue-soft);
+  transition:
+    color var(--fnl-dur) var(--fnl-ease),
+    border-color var(--fnl-dur) var(--fnl-ease);
+}
+
+.fnl-presentation .fnl-link:hover {
+  color: var(--fnl-blue-dark);
+  border-color: var(--fnl-blue-dark);
+}
+
+.fnl-presentation .fnl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 20px;
+  border-radius: 4px;
+  border: 1px solid var(--fnl-blue);
+  background: var(--fnl-blue);
+  color: var(--fnl-paper);
+  transition:
+    background var(--fnl-dur) var(--fnl-ease),
+    border-color var(--fnl-dur) var(--fnl-ease),
+    transform var(--fnl-dur) var(--fnl-ease);
+}
+
+.fnl-presentation .fnl-btn:hover {
+  background: var(--fnl-blue-dark);
+  border-color: var(--fnl-blue-dark);
+}
+
+.fnl-presentation .fnl-btn:active {
+  transform: translateY(1px);
+}
+
+.fnl-presentation .fnl-btn-ghost {
+  background: transparent;
+  color: var(--fnl-blue);
+}
+
+.fnl-presentation .fnl-btn-ghost:hover {
+  background: var(--fnl-blue);
+  color: var(--fnl-paper);
+}
+
+.fnl-presentation .fnl-nav-pill {
+  border-radius: 999px;
+  border: 1px solid var(--fnl-ink-12);
+  background: var(--fnl-paper);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fnl-blue-deep);
+  transition: background var(--fnl-dur) var(--fnl-ease);
+}
+
+.fnl-presentation .fnl-nav-pill:hover {
+  background: var(--fnl-blue-soft);
+}
+
+.fnl-presentation .fnl-slide {
+  border-radius: 8px;
+  border: 1px solid var(--fnl-ink-12);
+  background: var(--fnl-paper);
+  box-shadow: var(--fnl-shadow-card);
+  transition:
+    box-shadow var(--fnl-dur) var(--fnl-ease),
+    transform var(--fnl-dur) var(--fnl-ease);
+}
+
+.fnl-presentation .fnl-slide:hover {
+  box-shadow: var(--fnl-shadow-hover);
+  transform: translateY(-2px);
+}
+
+@media print {
+  .fnl-presentation .fnl-slide:hover {
+    transform: none;
+    box-shadow: var(--fnl-shadow-card);
+  }
+}
+
+.fnl-presentation .fnl-slide-muted {
+  background: var(--fnl-blue-pale);
+}
+
+.fnl-presentation .fnl-kpi {
+  border-radius: 8px;
+  border: 1px solid var(--fnl-ink-12);
+  background: var(--fnl-blue-pale);
+  padding: 12px 16px;
+}
+
+.fnl-presentation .fnl-mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.fnl-presentation .fnl-sticky-nav {
+  border-bottom: 1px solid var(--fnl-ink-12);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+}
+
+.fnl-presentation .fnl-header {
+  position: relative;
+  background: var(--fnl-paper);
+  border-bottom: 1px solid var(--fnl-ink-12);
+  overflow: hidden;
+}
+
+.fnl-presentation .fnl-header::after {
+  content: "";
+  position: absolute;
+  right: -4rem;
+  top: 0;
+  width: min(55%, 520px);
+  height: 100%;
+  background: url("/fnl/pattern-frame.png") repeat;
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.fnl-presentation .fnl-header-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.fnl-presentation .fnl-callout {
+  border-radius: 8px;
+  border: 1px solid rgba(194, 138, 46, 0.35);
+  background: rgba(240, 244, 248, 0.9);
+  padding: 0.75rem 1rem;
+  font-size: 14px;
+  color: var(--fnl-ink-2);
+}
+
+.fnl-presentation .fnl-table-wrap {
+  border-radius: 8px;
+  border: 1px solid var(--fnl-ink-12);
+  overflow: hidden;
+}
+
+.fnl-presentation .fnl-table-wrap thead {
+  background: var(--fnl-blue-pale);
+}
+
+.fnl-presentation .fnl-table-wrap th {
+  color: var(--fnl-blue-deep);
+  font-weight: 600;
+}
+
+.fnl-presentation .fnl-table-wrap td {
+  color: var(--fnl-ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fnl-presentation .fnl-slide,
+  .fnl-presentation .fnl-btn,
+  .fnl-presentation .fnl-link,
+  .fnl-presentation .fnl-nav-pill {
+    transition: none;
+  }
+
+  .fnl-presentation .fnl-slide:hover {
+    transform: none;
+  }
+}
