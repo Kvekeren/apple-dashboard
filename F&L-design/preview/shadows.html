@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
+<style>
+  body { padding: 28px 32px; background: var(--paper); }
+  .row { display: flex; gap: 22px; }
+  .tile { flex: 1; background: var(--paper-1); border-radius: 8px; height: 130px; display:flex; flex-direction:column; justify-content:flex-end; padding: 16px; gap: 4px; }
+  .tile.card { box-shadow: 0 1px 2px rgba(0,30,59,.04), 0 8px 24px rgba(0,30,59,.06); }
+  .tile.hover { box-shadow: 0 1px 2px rgba(0,30,59,.06), 0 14px 32px rgba(0,30,59,.10); }
+  .tile.float { box-shadow: 0 12px 40px rgba(0,30,59,.18); }
+  .name { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); }
+  .label { font-family: 'Sharp Grotesk', sans-serif; font-size: 13px; color: var(--ink); font-weight: 600; }
+</style></head>
+<body>
+  <div class="row">
+    <div class="tile card"><div class="label">card</div><div class="name">--shadow-card</div></div>
+    <div class="tile hover"><div class="label">hover</div><div class="name">--shadow-hover</div></div>
+    <div class="tile float"><div class="label">float</div><div class="name">--shadow-float</div></div>
+  </div>
+</body></html>

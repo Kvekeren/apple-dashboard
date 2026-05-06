@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
+<style>
+  body { padding: 28px 32px; display: flex; gap: 36px; align-items: center; flex-wrap: wrap; }
+  .stack { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+  .label { font-family: 'Sharp Grotesk', sans-serif; font-size: 11px; color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; }
+  img.h { height: 56px; }
+  img.v { height: 96px; }
+  img.s { height: 28px; }
+  .swatch-row { display:flex; gap: 8px; align-items: center; }
+  .sw { width: 28px; height: 28px; border-radius: 4px; }
+</style></head>
+<body>
+  <div class="stack">
+    <img class="h" src="../assets/logo-horizontal.svg" alt="F&L Media — horizontal lockup">
+    <div class="label">horizontal lockup</div>
+  </div>
+  <div class="stack">
+    <img class="v" src="../assets/logo-vertical.svg" alt="F&L Media — vertical lockup">
+    <div class="label">vertical lockup</div>
+  </div>
+  <div class="stack">
+    <img class="s" src="../assets/logo-horizontal.svg" alt="F&L Media — small">
+    <div class="label">small (28px)</div>
+  </div>
+  <div class="stack">
+    <div class="swatch-row">
+      <div class="sw" style="background:#004077"></div>
+      <div class="label" style="text-transform:none; font-family:'JetBrains Mono', monospace;">#004077</div>
+    </div>
+    <div class="label">brand color</div>
+  </div>
+</body></html>

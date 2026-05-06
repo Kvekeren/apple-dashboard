@@ -14,11 +14,13 @@
     "date-fns": "^4.1.0",
     "fast-xml-parser": "^5.3.6",
     "googleapis": "^171.4.0",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^0.564.0",
     "next": "16.1.6",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "recharts": "^3.8.1",
     "tailwind-merge": "^3.4.1"
   },
   "devDependencies": {

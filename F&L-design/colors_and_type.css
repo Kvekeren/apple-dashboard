@@ -1,0 +1,215 @@
+/* =====================================================================
+   F&L Media — colors & type tokens
+   Sourced directly from the official F&L Media 2023 brand assets:
+     - Brand blue: #004077 (used in PowerPoint template + logo)
+     - Display:    Sharp Grotesk SemiBold 25
+     - Body:       Sharp Grotesk Book 20
+     - Body alt:   Sharp Grotesk Book 25
+   ===================================================================== */
+
+/* ---------- Local web fonts (Sharp Grotesk) ---------- */
+@font-face {
+  font-family: 'Sharp Grotesk';
+  src: url('fonts/SharpGrotesk-Book20.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Sharp Grotesk';
+  src: url('fonts/SharpGrotesk-Book25.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Sharp Grotesk';
+  src: url('fonts/SharpGrotesk-SemiBold25.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Sharp Grotesk';
+  src: url('fonts/SharpGrotesk-SemiBold25.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ===== Color — brand blue (the F&L primary) ===== */
+  --blue:         #004077;  /* primary brand color */
+  --blue-dark:    #002F58;  /* hover / pressed */
+  --blue-deep:    #001E3B;  /* deepest, large surfaces */
+  --blue-soft:    #DCE7F0;  /* soft wash / hover backgrounds */
+  --blue-pale:    #F0F4F8;  /* tint for sections */
+
+  /* ===== Color — paper / ink ===== */
+  --paper:        #FFFFFF;  /* default page background (the brand is white-grounded) */
+  --paper-1:      #F7F9FB;  /* surface elevation 1 */
+  --paper-2:      #EEF2F6;  /* surface elevation 2 */
+
+  --ink:          #001E3B;  /* primary text — uses the deepest blue, not pure black */
+  --ink-2:        #2B3D52;  /* secondary text, body copy */
+  --ink-3:        #5C6B7C;  /* tertiary text, captions */
+  --ink-4:        #8B97A4;  /* placeholder, disabled */
+
+  --ink-12:       rgba(0, 30, 59, 0.12);
+  --ink-08:       rgba(0, 30, 59, 0.08);
+  --ink-04:       rgba(0, 30, 59, 0.04);
+
+  /* ===== Pattern accents (from PPTX cover-pattern) ===== */
+  --pattern-1:    #C9D6E0;
+  --pattern-2:    #E5ECF2;
+
+  /* ===== Semantic / state ===== */
+  --success:      #2E8B5F;
+  --warning:      #C28A2E;
+  --danger:       #C8362B;
+  --info:         var(--blue);
+
+  /* ===== Type families ===== */
+  --font-display: 'Sharp Grotesk', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-body:    'Sharp Grotesk', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* ===== Type scale ===== */
+  --fs-display:   clamp(56px, 7vw, 104px);
+  --fs-h1:        clamp(40px, 4.5vw, 64px);
+  --fs-h2:        clamp(28px, 3vw, 40px);
+  --fs-h3:        24px;
+  --fs-h4:        20px;
+  --fs-body-lg:   18px;
+  --fs-body:      16px;
+  --fs-body-sm:   14px;
+  --fs-meta:      12px;
+
+  --lh-tight:     1.0;
+  --lh-snug:      1.12;
+  --lh-normal:    1.45;
+  --lh-loose:     1.6;
+
+  --tracking-tight:  -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.06em;
+
+  /* ===== Spacing (4px base) ===== */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 24px;
+  --s-6: 32px; --s-7: 48px; --s-8: 64px; --s-9: 96px; --s-10: 128px;
+
+  /* ===== Radii ===== */
+  --r-0: 0px;
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+
+  --border-hairline: 1px solid var(--ink-12);
+
+  /* ===== Shadows ===== */
+  --shadow-card:  0 1px 2px rgba(0,30,59,.04), 0 8px 24px rgba(0,30,59,.06);
+  --shadow-hover: 0 1px 2px rgba(0,30,59,.06), 0 14px 32px rgba(0,30,59,.10);
+  --shadow-float: 0 12px 40px rgba(0,30,59,.18);
+
+  /* ===== Motion ===== */
+  --ease:     cubic-bezier(.2, .6, .2, 1);
+  --dur-fast: 150ms;
+  --dur-base: 300ms;
+  --dur-slow: 600ms;
+
+  /* ===== Layout ===== */
+  --container-max: 1200px;
+  --container-pad: clamp(20px, 4vw, 48px);
+}
+
+/* ===== Semantic resets ===== */
+.fnl, body.fnl {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.fnl h1, .fnl h2, .fnl h3, .fnl h4 {
+  font-family: var(--font-display);
+  color: var(--blue);
+  letter-spacing: var(--tracking-tight);
+  margin: 0 0 var(--s-4);
+  font-weight: 600;
+  line-height: var(--lh-snug);
+  text-wrap: balance;
+}
+.fnl .display { font-size: var(--fs-display); line-height: var(--lh-tight); font-weight: 600; letter-spacing: -0.025em; color: var(--blue); }
+.fnl h1 { font-size: var(--fs-h1); line-height: var(--lh-tight); }
+.fnl h2 { font-size: var(--fs-h2); }
+.fnl h3 { font-size: var(--fs-h3); }
+.fnl h4 { font-size: var(--fs-h4); font-weight: 500; }
+
+.fnl p {
+  margin: 0 0 var(--s-4);
+  color: var(--ink-2);
+  line-height: var(--lh-loose);
+  text-wrap: pretty;
+}
+.fnl .lede { font-size: var(--fs-body-lg); color: var(--ink); font-weight: 500; }
+.fnl .meta { font-size: var(--fs-meta); color: var(--ink-3); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
+
+.fnl a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 1px solid var(--blue-soft);
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.fnl a:hover { color: var(--blue-dark); border-color: var(--blue-dark); }
+
+.fnl code, .fnl pre { font-family: var(--font-mono); font-size: 0.92em; }
+
+/* Hashtag chip */
+.fnl .hashtag {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  letter-spacing: var(--tracking-wide);
+  text-transform: lowercase;
+  color: var(--blue);
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  transition: background var(--dur-fast) var(--ease);
+}
+.fnl .hashtag:hover { background: var(--blue-soft); }
+
+/* Buttons */
+.fnl .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-body);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 12px 20px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--blue);
+  background: var(--blue);
+  color: var(--paper);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.fnl .btn:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
+.fnl .btn:active { transform: translateY(1px); }
+.fnl .btn--ghost { background: transparent; color: var(--blue); }
+.fnl .btn--ghost:hover { background: var(--blue); color: var(--paper); }
+
+.fnl .container {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding-left: var(--container-pad);
+  padding-right: var(--container-pad);
+}

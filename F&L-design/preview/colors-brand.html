@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
+<style>
+  body { padding: 28px 32px; }
+  .row1 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; }
+  .sw { display: flex; flex-direction: column; gap: 6px; }
+  .chip { height: 130px; border-radius: 8px; }
+  .name { font-size: 13px; color: var(--ink); font-weight: 600; }
+  .hex { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+  .role { font-size: 11px; color: var(--ink-3); letter-spacing: .05em; text-transform: uppercase; }
+  .ampchip { display:flex; align-items:center; justify-content:center; height:100%; font-family: 'Sharp Grotesk', sans-serif; font-weight: 700; font-size: 80px; color: #FFFFFF; line-height: 1; letter-spacing: -0.03em; }
+</style></head>
+<body>
+  <div class="row1">
+    <div class="sw">
+      <div class="chip" style="background:#004077"><div class="ampchip">F&amp;L</div></div>
+      <div class="role">primary brand color</div>
+      <div class="name">blue</div>
+      <div class="hex">#004077</div>
+    </div>
+    <div class="sw"><div class="chip" style="background:#002F58"></div><div class="role">hover / pressed</div><div class="name">blue-dark</div><div class="hex">#002F58</div></div>
+    <div class="sw"><div class="chip" style="background:#001E3B"></div><div class="role">deepest / ink</div><div class="name">blue-deep</div><div class="hex">#001E3B</div></div>
+  </div>
+</body></html>

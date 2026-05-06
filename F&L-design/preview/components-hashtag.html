@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="_card.css">
+<style>
+  body { padding: 24px 32px; display:flex; flex-direction:column; gap: 18px; }
+  .row { display:flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chip { font-family: 'Sharp Grotesk', sans-serif; font-size: 13px; font-weight: 500; color: #004077; letter-spacing: .04em; text-transform: lowercase; padding: 6px 10px; border-radius: 4px; transition: background 150ms; cursor: pointer; }
+  .chip.hover { background: #DCE7F0; }
+  .chip.solid { background: #004077; color: #FFFFFF; }
+  .chip.outline { border: 1px solid var(--ink-12); }
+  .label { font-family: 'Sharp Grotesk', sans-serif; font-size: 11px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; font-weight: 500; min-width: 90px; }
+</style></head>
+<body>
+  <div class="row"><div class="label">Default</div><span class="chip">#samenwerking</span><span class="chip">#foodies</span><span class="chip">#magazine</span><span class="chip">#redactie</span></div>
+  <div class="row"><div class="label">Hover</div><span class="chip hover">#samenwerking</span></div>
+  <div class="row"><div class="label">Active</div><span class="chip solid">#samenwerking</span></div>
+  <div class="row"><div class="label">Outline</div><span class="chip outline">#magazine</span></div>
+</body></html>
