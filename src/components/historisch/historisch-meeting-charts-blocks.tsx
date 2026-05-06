@@ -113,7 +113,7 @@ export function ChartShell({
           {downloadLabel}
         </button>
       </div>
-      <p className={`${captionClassName} text-sm`}>{caption}</p>
+      {caption.trim() ? <p className={`${captionClassName} text-sm`}>{caption}</p> : null}
       <div ref={chartRef} className="mt-3 w-full bg-white" style={{ height: h }}>
         {children}
       </div>

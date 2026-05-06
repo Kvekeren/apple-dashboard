@@ -33,7 +33,6 @@ import type { HistorischNieuwsbriefArtikelReport } from "@/lib/historisch-nieuws
 import { formatPer1k, formatPct, formatRatioAsPct } from "@/lib/historisch-page-format";
 import type { HistorischTopArticlesOriginReport } from "@/lib/historisch-top-articles-origin-shared";
 import type {
-  HistorischTopArticleMonthBundle,
   HistorischTopArticlePivotRow,
   HistorischTopArticlesReport,
 } from "@/lib/historisch-top-articles-shared";
@@ -44,7 +43,9 @@ const CHART_H = 360;
 const CHART_X = 11;
 const BAR_H = 280;
 const DL = "Download PNG";
-/** F&L-palette voor slide 6 (één kleur per jaarbalk). */
+/** Publieke site voor klikbare pagePath-links in tabellen. */
+const HN_PUBLIC_ORIGIN = "https://www.historischnieuwsblad.nl";
+/** F&L-palette voor slide 5 (één kleur per jaarbalk). */
 const ABO_JAAR_BAR_FILLS: Record<string, string> = {
   "2024": "#004077",
   "2025": "#C25621",
@@ -228,19 +229,6 @@ function formatEventAvgPerMonth(avg: number | null): string {
   return NlInt(Math.round(avg));
 }
 
-function lowestNbPer1kMonth(table: HistorischNieuwsbriefArtikelReport["tableA"]): {
-  yearMonth: string;
-  v: number;
-} | null {
-  let best: { yearMonth: string; v: number } | null = null;
-  for (const r of table) {
-    const v = r.nieuwsbrief_per_1000_pageviews;
-    if (v == null) continue;
-    if (!best || v < best.v) best = { yearMonth: r.yearMonth, v };
-  }
-  return best;
-}
-
 function channelAboSharePct(
   summary: HistorischTopArticlesOriginReport["january2024"]["summary"],
   gaKey: string
@@ -255,40 +243,12 @@ function shortenPagePath(path: string, max = 46): string {
   return path.length > max ? `${path.slice(0, max - 1)}…` : path;
 }
 
-function sumTopAbonneren(rows: HistorischTopArticlePivotRow[], n: number): number {
-  return rows.slice(0, n).reduce((s, r) => s + r.paywall_abonneren, 0);
-}
-
-function pctOfTotal(part: number, total: number): number | null {
-  if (total <= 0) return null;
-  return (part / total) * 100;
-}
-
-function formatPctOneDec(p: number | null): string {
-  if (p == null) return "—";
-  return p.toLocaleString("nl-NL", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
-}
-
-function artikelSpreeknaam(path: string): string {
-  const p = path.toLowerCase();
-  if (p.includes("houthis") || p.includes("houthi")) return "Houthi-artikel";
-  if (p.includes("hamas")) return "Hamas-artikel";
-  return "Topartikel";
-}
-
-function buildPiekMaandBullet(monthLabel: string, bundle: HistorischTopArticleMonthBundle): string | null {
-  const total = bundle.technical.monthTotalPaywallAbonnerenFromGa;
-  const rows = bundle.topByAbonnement;
-  if (total <= 0 || !rows.length) return null;
-  const top5 = sumTopAbonneren(rows, 5);
-  const top25 = sumTopAbonneren(rows, 25);
-  const p5 = pctOfTotal(top5, total);
-  const p25 = pctOfTotal(top25, total);
-  const first = rows[0];
-  const p1 = pctOfTotal(first.paywall_abonneren, total);
-  const name = artikelSpreeknaam(first.pagePath);
-  const roundPct = (x: number | null) => (x == null ? "—" : `${Math.round(x)}`);
-  return `${monthLabel}: geen megahit, wel spreiding — top-25 verklaart ~${roundPct(p25)}% van het maandtotaal, top-5 ~${roundPct(p5)}%. ${name} was #1 met ${NlInt(first.paywall_abonneren)} kliks (${formatPctOneDec(p1)}).`;
+function publicArticleUrlFromPagePath(path: string): string | null {
+  const p = path.trim();
+  if (!p) return null;
+  if (/^https?:\/\//i.test(p)) return p;
+  const pathOnly = p.startsWith("/") ? p : `/${p}`;
+  return `${HN_PUBLIC_ORIGIN}${pathOnly}`;
 }
 
 /** Waarde boven elke jaarbalk (Recharts LabelList content). */
@@ -362,22 +322,37 @@ function TopFiveMiniTable({ rows }: { rows: HistorischTopArticlePivotRow[] }) {
           </tr>
         </thead>
         <tbody>
-          {five.map((r) => (
-            <tr key={r.pagePath} className="border-b border-[rgba(0,30,59,0.06)] last:border-0">
-              <td className="fnl-mono max-w-[14rem] px-3 py-2 text-xs" title={r.pagePath}>
-                {shortenPagePath(r.pagePath, 40)}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
-                {r.paywall_abonneren.toLocaleString("nl-NL")}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
-                {r.paywall_view.toLocaleString("nl-NL")}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
-                {formatRatioAsPct(r.paywall_abonneer_ratio)}
-              </td>
-            </tr>
-          ))}
+          {five.map((r) => {
+            const href = publicArticleUrlFromPagePath(r.pagePath);
+            const label = shortenPagePath(r.pagePath, 40);
+            return (
+              <tr key={r.pagePath} className="border-b border-[rgba(0,30,59,0.06)] last:border-0">
+                <td className="fnl-mono max-w-[14rem] px-3 py-2 text-xs" title={r.pagePath}>
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="fnl-link font-medium underline-offset-2 hover:underline"
+                    >
+                      {label}
+                    </a>
+                  ) : (
+                    label
+                  )}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                  {r.paywall_abonneren.toLocaleString("nl-NL")}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                  {r.paywall_view.toLocaleString("nl-NL")}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                  {formatRatioAsPct(r.paywall_abonneer_ratio)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -385,18 +360,17 @@ function TopFiveMiniTable({ rows }: { rows: HistorischTopArticlePivotRow[] }) {
 }
 
 const NAV: [string, string][] = [
-  ["pres-kader", "1. Kader"],
-  ["pres-conclusie", "2. Conclusie"],
-  ["pres-pv-pw", "3. Verkeer vs paywall"],
-  ["pres-nieuw-verkeer", "4. Nieuw verkeer"],
-  ["pres-pw-abo", "5. Paywall & abo"],
-  ["pres-ratio", "6. Paywallratio"],
-  ["pres-abo-stabiel", "7. Abonneren"],
-  ["pres-piek-art", "8. Piekartikelen"],
-  ["pres-piek-kanaal", "9. Kan. piek"],
-  ["pres-nb-1k", "10. Nw. / 1k"],
-  ["pres-nb-device", "11. Nw. device"],
-  ["pres-vervolg", "12. Vervolg"],
+  ["pres-kader", "Introductie"],
+  ["pres-pv-pw", "1. Verkeer vs paywall"],
+  ["pres-nieuw-verkeer", "2. Nieuw verkeer"],
+  ["pres-pw-abo", "3. Paywall & abo"],
+  ["pres-ratio", "4. Paywallratio"],
+  ["pres-abo-stabiel", "5. Abonneren"],
+  ["pres-piek-art", "6. Piekartikelen"],
+  ["pres-piek-kanaal", "7. Kan. piek"],
+  ["pres-nb-1k", "8. Nw. / 1k"],
+  ["pres-nb-device", "9. Nw. device"],
+  ["pres-conclusie", "10. Conclusies"],
 ];
 
 export default function HistorischPresentatiePage() {
@@ -495,12 +469,7 @@ export default function HistorischPresentatiePage() {
   const share2024 = meanMonthlyPaywallShare(rows, "2024-");
   const share2025 = meanMonthlyPaywallShare(rows, "2025-");
   const share2026 = meanMonthlyPaywallShare(rows, "2026-");
-  const avgPv2024 = avgScreenPageViewsPerMonth(rows, "2024-");
-  const avgPv2026 = avgScreenPageViewsPerMonth(rows, "2026-");
-  const pvGrowth2426Pct =
-    avgPv2024 != null && avgPv2024 > 0 && avgPv2026 != null
-      ? ((avgPv2026 - avgPv2024) / avgPv2024) * 100
-      : null;
+
   const avgAbo2024 = avgPaywallAbonnerenPerMonth(rows, "2024-");
   const avgAbo2025 = avgPaywallAbonnerenPerMonth(rows, "2025-");
   const avgAbo2026 = avgPaywallAbonnerenPerMonth(rows, "2026-");
@@ -516,7 +485,6 @@ export default function HistorischPresentatiePage() {
   const nbEventsAvg2024 = avgNieuwsbriefEventsPerMonth(tableA, "2024-");
   const nbEventsAvg2025 = avgNieuwsbriefEventsPerMonth(tableA, "2025-");
   const nbEventsAvg2026 = avgNieuwsbriefEventsPerMonth(tableA, "2026-");
-  const nbLow = tableA.length ? lowestNbPer1kMonth(tableA) : null;
 
   const nbDevicePres = useMemo(() => {
     const tableB = nbArtikel?.tableB ?? [];
@@ -597,75 +565,91 @@ export default function HistorischPresentatiePage() {
     return pts;
   }, [rows]);
 
-  const conclusieVoorafKaarten = useMemo(() => {
+  const conclusieItems = useMemo(() => {
     const pv24 = avgScreenPageViewsPerMonth(rows, "2024-");
     const pv25 = avgScreenPageViewsPerMonth(rows, "2025-");
     const pv26 = avgScreenPageViewsPerMonth(rows, "2026-");
     const pvChain =
       pv24 != null && pv25 != null && pv26 != null
-        ? `${formatAvgPageviewsK(pv24)} → ${formatAvgPageviewsK(pv25)} → ${formatAvgPageviewsK(pv26)} per maand`
-        : "— → — → — per maand";
-    const b1 = `Het verkeer is niet het probleem — pageviews stijgen door (${pvChain}).`;
-    const s24 = formatSharePctCompact(share2024);
-    const s25 = formatSharePctCompact(share2025);
-    const s26 = formatSharePctCompact(share2026);
-    const b2 = `Paywall-exposure is bijna gehalveerd: ${s24} → ${s25} → ${s26} van de pageviews bereikt de paywall.`;
-    const nbDrop =
-      nbEventsAvg2024 != null && nbEventsAvg2024 > 0 && nbEventsAvg2026 != null
+        ? `${formatAvgPageviewsK(pv24)} → ${formatAvgPageviewsK(pv25)} → ${formatAvgPageviewsK(pv26)}`
+        : "— → — → —";
+    const nuChain = `${formatAvgNewUsersK(avgNu2024)} → ${formatAvgNewUsersK(avgNu2025)} → ${formatAvgNewUsersK(avgNu2026)}`;
+    const shareChain = `${formatSharePctCompact(share2024)} → ${formatSharePctCompact(share2025)} → ${formatSharePctCompact(share2026)}`;
+    const ratioChain = `${formatRatioAsPct(ratioAvg2024, 2)} → ${formatRatioAsPct(ratioAvg2025, 2)} → ${formatRatioAsPct(ratioAvg2026, 2)}`;
+    const aboChain = `${formatEventAvgPerMonth(avgAbo2024)} → ${formatEventAvgPerMonth(avgAbo2025)} → ${formatEventAvgPerMonth(avgAbo2026)}`;
+
+    const janEmail = channelAboSharePct(janSum, "email");
+    const junEmail = channelAboSharePct(junSum, "email");
+    const janOrg = channelAboSharePct(janSum, "organic search");
+    const junOrg = channelAboSharePct(junSum, "organic search");
+
+    const nbDropPct =
+      nbEventsAvg2024 != null && nbEventsAvg2026 != null && nbEventsAvg2024 > 0
         ? Math.round((1 - nbEventsAvg2026 / nbEventsAvg2024) * 100)
         : null;
-    const nbChain =
-      nbEventsAvg2024 != null && nbEventsAvg2025 != null && nbEventsAvg2026 != null
-        ? `${formatEventAvgPerMonth(nbEventsAvg2024)} → ${formatEventAvgPerMonth(nbEventsAvg2025)} → ${formatEventAvgPerMonth(nbEventsAvg2026)} per maand`
-        : "— → — → — per maand";
-    const b3 =
-      nbDrop != null
-        ? `Nieuwsbriefinschrijvingen via artikelen zakten met circa ${nbDrop}% (${nbChain}) en versnellen verder op mobiel.`
-        : `Nieuwsbriefinschrijvingen via artikelen: ${nbChain}; op mobiel het hardst.`;
-    return [b1, b2, b3];
-  }, [rows, share2024, share2025, share2026, nbEventsAvg2024, nbEventsAvg2025, nbEventsAvg2026]);
+    const evChain = `${formatEventAvgPerMonth(nbEventsAvg2024)} → ${formatEventAvgPerMonth(nbEventsAvg2025)} → ${formatEventAvgPerMonth(nbEventsAvg2026)}`;
+    const per1kChain = `${formatPer1k2(nb2024)} → ${formatPer1k2(nb2025)} → ${formatPer1k2(nb2026)}`;
 
-  const piekArtInsightItems = useMemo(() => {
-    if (!topArticles || topArticles.fatalError) {
-      return [
-        "Januari en juni 2024: spreiding over meerdere artikelen (stap 5 nodig voor exacte verdeling).",
-        "Actuele/geopolitieke onderwerpen lijken relatief sterk.",
-        "pagePath is betrouwbaarder dan pageTitle (vertaling/varianten).",
-      ];
+    let mobileClause = "Mobiel daalt het hardst — zie ook slide 9.";
+    const mobRow = nbDevicePres?.deltaRows.find((r) => r.device === "Mobiel");
+    if (mobRow && nbDevicePres?.end.yearMonth) {
+      const d = formatPctChangeJanEnd(mobRow.jan, mobRow.end);
+      if (d !== "—") mobileClause = `Mobiel daalt het hardst (${d} sinds januari 2024).`;
     }
-    const jan = buildPiekMaandBullet("Januari", topArticles.january2024);
-    const jun = buildPiekMaandBullet("Juni", topArticles.june2024);
-    const items: string[] = [];
-    if (jan) items.push(jan);
-    if (jun) items.push(jun);
-    items.push("Actuele/geopolitieke onderwerpen lijken relatief sterk.");
-    items.push("pagePath is betrouwbaarder dan pageTitle (vertaling/varianten).");
-    return items;
-  }, [topArticles]);
 
-  const vervolgDuidelijkItems = useMemo(() => {
-    const nbLine =
-      nb2024 != null && nb2026 != null && nb2024 > 0
-        ? (() => {
-            const mult = nb2024 / nb2026;
-            let multPhrase = "wezenlijk minder";
-            if (mult >= 2.75) multPhrase = "ruim drie keer minder";
-            else if (mult >= 2.25)
-              multPhrase = `ruim ${mult.toLocaleString("nl-NL", { maximumFractionDigits: 1 })}× minder`;
-            else if (mult >= 2) multPhrase = "ongeveer twee keer minder";
-            const drop =
-              nbEventsAvg2024 != null && nbEventsAvg2026 != null && nbEventsAvg2024 > 0
-                ? Math.round((1 - nbEventsAvg2026 / nbEventsAvg2024) * 100)
-                : Math.round((1 - nb2026 / nb2024) * 100);
-            return `Nieuwsbriefblok-performance is in twee jaar circa ${drop}% gezakt; per pageview ${multPhrase} rendement dan in 2024.`;
-          })()
-        : "Nieuwsbriefblok-performance is in twee jaar sterk gezakt; per pageview duidelijk minder rendement dan in 2024.";
+    const emailOrganicBody =
+      janEmail != null && junEmail != null && janOrg != null && junOrg != null
+        ? `E-mail leverde ${Math.round(janEmail)}% (januari) en ${Math.round(junEmail)}% (juni) van de abonneerkliks op de top-25 artikelen; organisch zoeken ${Math.round(janOrg)}% (januari) en ${Math.round(junOrg)}% (juni).`
+        : "E-mail en organisch zoeken op de top-25 artikelen: zie kanaalcijfers op slide 7 (stap 6).";
+
+    const nbTitlePct = nbDropPct != null ? `~${nbDropPct}%` : "~70%";
+
     return [
-      "Minder paywall-exposure lijkt belangrijker dan een lagere paywallklikratio.",
-      "Het totale verkeer is niet het hele probleem; het gaat om verkeer dat de paywall bereikt.",
-      nbLine,
+      {
+        title: "1. Verkeer is niet het probleem.",
+        body: `Pageviews per maand groeien door over drie jaren (${pvChain}); ook nieuwe gebruikers stijgen licht (${nuChain} per maand).`,
+      },
+      {
+        title: "2. Paywall-vertoningen zijn bijna gehalveerd.",
+        body: `Het aandeel pageviews dat de paywall bereikt: ${shareChain}. Dit valt het meest op in de data, en de daling versnelt.`,
+      },
+      {
+        title: "3. De paywall zelf converteert juist beter.",
+        body: `De abo-ratio (klik/view) steeg over drie jaren door: ${ratioChain}. Abonneerkliks blijven stabiel (${aboChain} per maand).`,
+      },
+      {
+        title: "4. De pieken in 2024 kwamen vooral vanuit nieuwsbrieven.",
+        body: emailOrganicBody,
+      },
+      {
+        title: `5. Nieuwsbriefblok-performance zakte ${nbTitlePct} in twee jaar.`,
+        body: `Maandgemiddelde inschrijvingen: ${evChain}. Per 1.000 pageviews: ${per1kChain}. ${mobileClause} Onderzoeken wat de oorzaak is.`,
+      },
     ];
-  }, [nb2024, nb2026, nbEventsAvg2024, nbEventsAvg2026]);
+  }, [
+    rows,
+    share2024,
+    share2025,
+    share2026,
+    avgNu2024,
+    avgNu2025,
+    avgNu2026,
+    ratioAvg2024,
+    ratioAvg2025,
+    ratioAvg2026,
+    avgAbo2024,
+    avgAbo2025,
+    avgAbo2026,
+    janSum,
+    junSum,
+    nbEventsAvg2024,
+    nbEventsAvg2025,
+    nbEventsAvg2026,
+    nb2024,
+    nb2025,
+    nb2026,
+    nbDevicePres,
+  ]);
 
   function go(id: string) {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -742,55 +726,16 @@ export default function HistorischPresentatiePage() {
           className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide print:break-inside-avoid"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">1. Waar kijken we naar?</h2>
-            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">1 / 12</span>
+            <h2 className="fnl-slide-title">Introductie</h2>
           </div>
-          <p className="text-[var(--fnl-ink-2)]">
-            We kijken waar de instroom stokt: bij verkeer, paywall-exposure, klik naar abonnement of
-            nieuwsbriefinschrijving.
-          </p>
-          <InsightList
-            items={[
-              "Paywall views",
-              "Klikken naar abonnement",
-              "Piekmaanden januari en juni 2024",
-              "Nieuwsbriefblokken in artikelen",
-            ]}
-          />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              "Paywall & conversie",
-              "Piekartikelen (pagePath)",
-              "Kanaalherkomst piek",
-              "Nieuwsbrief per verkeer",
-            ].map((t) => (
-              <div
-                key={t}
-                className="rounded-lg border border-dashed border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-3 py-4 text-center text-sm font-semibold text-[var(--fnl-blue-deep)]"
-              >
-                {t}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section
-          id="pres-conclusie"
-          className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide"
-        >
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">2. Belangrijkste conclusie vooraf</h2>
-            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">2 / 12</span>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {conclusieVoorafKaarten.map((t) => (
-              <div
-                key={t}
-                className="rounded-lg border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] p-4 text-base leading-snug text-[var(--fnl-ink)]"
-              >
-                {t}
-              </div>
-            ))}
+          <div className="max-w-prose text-pretty leading-relaxed text-[var(--fnl-ink-2)]">
+            <p>
+              <span className="font-bold text-[var(--fnl-ink)]">Achtergrond.</span> De instroom van de online en
+              digitale abonnementen (HN Online en HN Digitaal) blijft sinds 2025 achter op het budget en daalt verder
+              in 2026. We willen weten of dat komt door minder siteverkeer, door minder verkeer dat de paywall
+              bereikt, door een slechtere conversie van paywall naar abonneren, of door iets anders. Ook willen we
+              weten hoe het kan dat mensen zich minder snel inschrijven voor de nieuwsbrief.
+            </p>
           </div>
         </section>
 
@@ -799,8 +744,8 @@ export default function HistorischPresentatiePage() {
           className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">3. Siteverkeer versus paywall-views</h2>
-            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">3 / 12</span>
+            <h2 className="fnl-slide-title">1. Siteverkeer versus paywall-views</h2>
+            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">1 / 10</span>
           </div>
           <p className="fnl-lede">Zijn paywall-views even sterk gedaald als totale pageviews?</p>
           {chart.hasCombined ? (
@@ -822,7 +767,7 @@ export default function HistorischPresentatiePage() {
                 items={[
                   { label: "Gem. aandeel paywall/view 2024", value: formatSharePct(share2024) },
                   { label: "Gem. aandeel paywall/view 2025", value: formatSharePct(share2025) },
-                  { label: "Gem. aandeel paywall/view 2026 YTD", value: formatSharePct(share2026) },
+                  { label: "Gem. aandeel paywall/view 2026", value: formatSharePct(share2026) },
                 ]}
               />
             </>
@@ -830,17 +775,10 @@ export default function HistorischPresentatiePage() {
             <p className="text-sm text-[var(--fnl-ink-3)]">Data niet beschikbaar (stap 2 en 3 nodig).</p>
           )}
           <p className="font-semibold text-[var(--fnl-ink)]">
-            {pvGrowth2426Pct != null
-              ? `Totale pageviews stijgen juist licht (+${pvGrowth2426Pct.toLocaleString("nl-NL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% over twee jaar), maar het aandeel pageviews dat de paywall raakt is bijna gehalveerd.`
-              : "Totale pageviews stijgen licht, maar het aandeel dat de paywall raakt daalt sterk — zie de kerncijfers."}
+            Totale pageviews stijgen juist licht (+10,5% over twee jaar), maar het aantal bezoekers dat de paywall
+            tegenkomt is bijna gehalveerd.
           </p>
-          <InsightList
-            items={[
-              "Minder paywall-exposure binnen bestaand verkeer.",
-              "Mogelijk meer verkeer naar gratis of niet-betaalde content.",
-              "Mogelijk andere artikelmix of distributie.",
-            ]}
-          />
+          <InsightList items={["Mogelijk minder paywall-blokken in artikelen"]} />
         </section>
 
         <section
@@ -848,9 +786,9 @@ export default function HistorischPresentatiePage() {
           className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">4. Nieuw verkeer</h2>
+            <h2 className="fnl-slide-title">2. Nieuw verkeer</h2>
             <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">
-              4 / 12
+              2 / 10
             </span>
           </div>
           <p className="fnl-lede">Blijft de instroom achter doordat er minder nieuwe gebruikers zijn?</p>
@@ -860,7 +798,7 @@ export default function HistorischPresentatiePage() {
                 items={[
                   { label: "Gemiddelde nieuwe gebruikers per maand in 2024", value: formatAvgNewUsersK(avgNu2024) },
                   { label: "Gemiddelde nieuwe gebruikers per maand in 2025", value: formatAvgNewUsersK(avgNu2025) },
-                  { label: "Gemiddelde nieuwe gebruikers per maand in 2026 YTD", value: formatAvgNewUsersK(avgNu2026) },
+                  { label: "Gemiddelde nieuwe gebruikers per maand in 2026", value: formatAvgNewUsersK(avgNu2026) },
                 ]}
               />
               <div className="aspect-video w-full min-h-[320px] min-w-0 max-h-[420px]">
@@ -900,8 +838,8 @@ export default function HistorischPresentatiePage() {
           className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">5. Paywall-views en abonneerkliks</h2>
-            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">5 / 12</span>
+            <h2 className="fnl-slide-title">3. Paywall-views en abonneerkliks</h2>
+            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">3 / 10</span>
           </div>
           <p className="fnl-lede">
             Daalt de instroom vooral omdat mensen minder op abonneren klikken?
@@ -931,7 +869,7 @@ export default function HistorischPresentatiePage() {
               "Wie de paywall ziet, klikt nog steeds relatief vaak door.",
               ...(avgAbo2024 != null && avgAbo2025 != null && avgAbo2026 != null
                 ? [
-                    `Abonneerkliks zijn over drie jaren stabiel (${formatEventAvgPerMonth(avgAbo2024)} → ${formatEventAvgPerMonth(avgAbo2025)} → ${formatEventAvgPerMonth(avgAbo2026)} per maand). De paywallratio stijgt vooral doordat de noemer — paywall-views — wegzakt.`,
+                    `Abonneerkliks zijn over drie jaren stabiel (${formatEventAvgPerMonth(avgAbo2024)} → ${formatEventAvgPerMonth(avgAbo2025)} → ${formatEventAvgPerMonth(avgAbo2026)} per maand).`,
                   ]
                 : []),
             ]}
@@ -943,8 +881,8 @@ export default function HistorischPresentatiePage() {
           className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">6. Paywallratio</h2>
-            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">6 / 12</span>
+            <h2 className="fnl-slide-title">4. Paywallratio</h2>
+            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">4 / 10</span>
           </div>
           <p className="fnl-lede">Is de conversie vanuit de paywall verslechterd?</p>
           {chart.hasCombined ? (
@@ -967,7 +905,7 @@ export default function HistorischPresentatiePage() {
                 items={[
                   { label: "Gemiddelde ratio 2024", value: formatRatioAsPct(ratioAvg2024) },
                   { label: "Gemiddelde ratio 2025", value: formatRatioAsPct(ratioAvg2025) },
-                  { label: "Gemiddelde ratio 2026 YTD", value: formatRatioAsPct(ratioAvg2026) },
+                  { label: "Gemiddelde ratio 2026", value: formatRatioAsPct(ratioAvg2026) },
                 ]}
               />
             </>
@@ -976,7 +914,7 @@ export default function HistorischPresentatiePage() {
           )}
           <p className="font-semibold text-[var(--fnl-ink)]">
             {ratioAvg2024 != null && ratioAvg2026 != null && ratioAvg2026 > ratioAvg2024
-              ? `De conversie op de paywall is in 2026 YTD gemiddeld hoger dan in 2024 (${formatRatioAsPct(ratioAvg2024)} → ${formatRatioAsPct(ratioAvg2026)}).`
+              ? `De conversie op de paywall is in 2026 gemiddeld hoger dan in 2024 (${formatRatioAsPct(ratioAvg2024)} → ${formatRatioAsPct(ratioAvg2026)}).`
               : "De paywall-abonneerratio verschuift met paywall-exposure — zie jaargemiddelden in de grafiek."}
           </p>
           <InsightList
@@ -989,9 +927,9 @@ export default function HistorischPresentatiePage() {
           className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">7. Kliks op &apos;abonneren&apos; bleven redelijk stabiel</h2>
+            <h2 className="fnl-slide-title">5. Kliks op &apos;abonneren&apos; bleven redelijk stabiel</h2>
             <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">
-              7 / 12
+              5 / 10
             </span>
           </div>
           <p className="fnl-lede">Gemiddeld aantal paywall_abonneren per kalendermaand, uitgesplitst naar jaar.</p>
@@ -1013,8 +951,7 @@ export default function HistorischPresentatiePage() {
                 </button>
               </div>
               <p className="mt-1 text-sm leading-snug text-[var(--fnl-ink-3)]">
-                Gemiddelde over alle maanden met data binnen het kalenderjaar (2026: YTD t/m de laatst beschikbare
-                maand).
+                Gemiddelde over alle maanden met data binnen het kalenderjaar (2026: t/m de laatst beschikbare maand).
               </p>
               <div className="mx-auto mt-3 h-[360px] w-full max-w-3xl min-w-0 bg-white">
                 <ResponsiveContainer width="100%" height="100%">
@@ -1056,8 +993,8 @@ export default function HistorischPresentatiePage() {
           className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">8. Wat verklaarde januari en juni 2024?</h2>
-            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">8 / 12</span>
+            <h2 className="fnl-slide-title">6. Wat verklaarde januari en juni 2024?</h2>
+            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">6 / 10</span>
           </div>
           <p className="fnl-lede">Welke artikelen zorgden voor de pieken?</p>
           {topArticles && !topArticles.fatalError ? (
@@ -1075,9 +1012,8 @@ export default function HistorischPresentatiePage() {
             <p className="text-sm text-[var(--fnl-ink-3)]">Data niet beschikbaar (stap 5).</p>
           )}
           <p className="font-semibold text-[var(--fnl-ink)]">
-            De pieken kwamen waarschijnlijk niet door één artikel, maar door een groep sterke artikelen.
+            Geen grote &apos;hit&apos;, maar een spreiding over actuele/duidende artikelen.
           </p>
-          <InsightList items={piekArtInsightItems} />
         </section>
 
         <section
@@ -1085,8 +1021,8 @@ export default function HistorischPresentatiePage() {
           className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">9. Waar kwamen de piekartikelen vandaan?</h2>
-            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">9 / 12</span>
+            <h2 className="fnl-slide-title">7. Waar kwamen de piekartikelen vandaan?</h2>
+            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">7 / 10</span>
           </div>
           <p className="fnl-lede">
             Kwam de piek door SEO, nieuwsbrief, social of direct?
@@ -1143,16 +1079,8 @@ export default function HistorischPresentatiePage() {
             <p className="text-sm text-[var(--fnl-ink-3)]">Data niet beschikbaar (stap 6).</p>
           )}
           <p className="font-semibold text-[var(--fnl-ink)]">
-            Nieuwsbrief/e-mail lijkt sterk bij te dragen aan de piekmaanden; organisch zoeken was vooral in juni
-            belangrijker.
+            Nieuwsbrief was belangrijk in de piekmaanden; organisch zoeken had in juni ook een belangrijk aandeel.
           </p>
-          <InsightList
-            items={[
-              "Januari was naar alle waarschijnlijkheid vooral e-mailgedreven.",
-              "Juni had een groter aandeel uit organisch zoeken.",
-              "Voor SEO-verdieping is juni interessanter dan januari.",
-            ]}
-          />
         </section>
 
         <section
@@ -1160,8 +1088,8 @@ export default function HistorischPresentatiePage() {
           className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">10. Nieuwsbriefblokken: minder resultaat per pageview</h2>
-            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">10 / 12</span>
+            <h2 className="fnl-slide-title">8. Nieuwsbriefblokken: minder resultaat per pageview</h2>
+            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">8 / 10</span>
           </div>
           <p className="fnl-lede">Waarom zien we weinig nieuwsbriefinschrijvingen?</p>
           {chart.hasNbA ? (
@@ -1173,7 +1101,7 @@ export default function HistorischPresentatiePage() {
                   chartHeight={CHART_H}
                   xTick={CHART_X}
                   title="Nieuwsbrief (artikel) per 1.000 paginaweergaven"
-                  caption="nieuwsbrief_inschrijving_artikelen per 1.000 screenPageViews (stap 7, tabel A)."
+                  caption=""
                   onDownloadPng={() => void exportChartPng(refNb1k.current, "presentatie-nieuwsbrief-1k.png")}
                   downloadLabel={DL}
                   chartTheme="fnl"
@@ -1191,7 +1119,7 @@ export default function HistorischPresentatiePage() {
                       value: formatPer1k(nb2025),
                     },
                     {
-                      label: "Gemiddelde nieuwsbrief per 1.000 paginaweergaven in 2026 YTD",
+                      label: "Gemiddelde nieuwsbrief per 1.000 paginaweergaven in 2026",
                       value: formatPer1k(nb2026),
                     },
                   ]}
@@ -1207,31 +1135,22 @@ export default function HistorischPresentatiePage() {
                       value: formatEventAvgPerMonth(nbEventsAvg2025),
                     },
                     {
-                      label: "Gemiddelde nieuwsbrief-events per maand in 2026 YTD",
+                      label: "Gemiddelde nieuwsbrief-events per maand in 2026",
                       value: formatEventAvgPerMonth(nbEventsAvg2026),
                     },
                   ]}
                 />
               </div>
-              <p className="text-sm text-[var(--fnl-ink-2)]">
-                Laagste maand (indicatie):{" "}
-                <span className="fnl-mono font-semibold">
-                  {nbLow ? `${nbLow.yearMonth} (${formatPer1k(nbLow.v)})` : "—"}
-                </span>
-              </p>
             </>
           ) : (
             <p className="text-sm text-[var(--fnl-ink-3)]">Data niet beschikbaar (stap 7 tabel A).</p>
           )}
           <p className="font-semibold text-[var(--fnl-ink)]">
-            De nieuwsbrief-events lijken ook gecorrigeerd voor pageviews te dalen.
+            Bezoekers schrijven zich op HN minder snel in via het nieuwsbriefblok.
           </p>
           <InsightList
             items={[
               `Het potentieel is er nog: ${formatAvgNewUsersK(avgNu2024)}–${formatAvgNewUsersK(avgNu2026)} nieuwe gebruikers per maand. De daling ligt dus niet bij een verzadigde doelgroep.`,
-              "Het ligt waarschijnlijk niet alleen aan minder verkeer.",
-              "Mogelijk zichtbaarheid, positie, copy of formuliergedrag.",
-              "Met de huidige events is niet te zien of het blok gezien of aangeklikt is.",
             ]}
           />
         </section>
@@ -1241,8 +1160,8 @@ export default function HistorischPresentatiePage() {
           className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">11. Nieuwsbrief mobiel versus desktop</h2>
-            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">11 / 12</span>
+            <h2 className="fnl-slide-title">9. Nieuwsbrief mobiel versus desktop</h2>
+            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">9 / 10</span>
           </div>
           <p className="fnl-lede">Kan het aan device of zichtbaarheid liggen?</p>
           {chart.hasNbB && nbDevicePres ? (
@@ -1264,13 +1183,7 @@ export default function HistorischPresentatiePage() {
                       {DL}
                     </button>
                   </div>
-                  <p className="mt-1 text-sm leading-snug text-[var(--fnl-ink-3)]">
-                    Gemiddelde van{" "}
-                    <span className="fnl-mono text-xs">nieuwsbrief_inschrijving_artikelen</span> per 1.000{" "}
-                    <span className="fnl-mono text-xs">screenPageViews</span> per kalenderjaar. Stap 7, tabel B —
-                    alleen desktop en mobiel (tablet en smart tv uitgesloten).
-                  </p>
-                  <div className="aspect-video mt-4 w-full min-h-[300px] min-w-0">
+                  <div className="mx-auto mt-4 h-[300px] w-full max-w-3xl min-w-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={nbDevicePres.barRows.map((r) => ({
@@ -1325,7 +1238,7 @@ export default function HistorischPresentatiePage() {
                         />
                         <Bar
                           dataKey="v2026"
-                          name="2026 YTD"
+                          name="2026"
                           fill="#287D52"
                           maxBarSize={52}
                           radius={[4, 4, 0, 0]}
@@ -1418,40 +1331,23 @@ export default function HistorischPresentatiePage() {
         </section>
 
         <section
-          id="pres-vervolg"
-          className="scroll-mt-40 space-y-6 break-inside-avoid p-6 fnl-slide"
+          id="pres-conclusie"
+          className="scroll-mt-40 space-y-4 break-inside-avoid p-6 fnl-slide print:break-inside-avoid"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="fnl-slide-title">12. Wat doen we hiermee?</h2>
-            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">12 / 12</span>
+            <h2 className="fnl-slide-title">10. Belangrijkste conclusies</h2>
+            <span className="fnl-meta inline-flex items-center rounded-full border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] px-2.5 py-0.5 tabular-nums">10 / 10</span>
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-lg border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] p-4">
-              <h3>Wat lijkt duidelijk</h3>
-              <InsightList items={vervolgDuidelijkItems} />
-            </div>
-            <div className="rounded-lg border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] p-4">
-              <h3>Wat weten we nog niet</h3>
-              <InsightList
-                items={[
-                  "Of paywall_abonneren leidt tot betaalde abonnementen.",
-                  "Of nieuwsbrief_inschrijving_artikelen een klik, submit of echte inschrijving meet.",
-                  "Of het nieuwsbriefprobleem zit in zichtbaarheid, klik of formulierconversie.",
-                ]}
-              />
-            </div>
-            <div className="rounded-lg border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] p-4">
-              <h3>Vervolgacties</h3>
-              <InsightList
-                items={[
-                  "Meet nieuwsbriefblok_view en nieuwsbriefblok_click.",
-                  "Analyseer shopconversie na paywall_abonneren.",
-                  "Bekijk mobiele nieuwsbriefblokken.",
-                  "Onderzoek juni 2024 SEO-artikelen verder.",
-                  "Vergelijk nieuwe content met evergreen-artikelen op paywallviews.",
-                ]}
-              />
-            </div>
+          <div className="mx-auto max-w-prose space-y-4">
+            {conclusieItems.map((item) => (
+              <div
+                key={item.title}
+                className="rounded-lg border border-[var(--fnl-ink-12)] bg-[var(--fnl-blue-pale)] p-4 text-base leading-snug"
+              >
+                <p className="text-lg font-bold leading-tight text-[var(--fnl-ink)]">{item.title}</p>
+                <p className="mt-2 leading-relaxed text-[var(--fnl-ink-2)]">{item.body}</p>
+              </div>
+            ))}
           </div>
         </section>
       </main>
