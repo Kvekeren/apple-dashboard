@@ -359,20 +359,6 @@ function TopFiveMiniTable({ rows }: { rows: HistorischTopArticlePivotRow[] }) {
   );
 }
 
-const NAV: [string, string][] = [
-  ["pres-kader", "Introductie"],
-  ["pres-pv-pw", "1. Verkeer vs paywall"],
-  ["pres-nieuw-verkeer", "2. Nieuw verkeer"],
-  ["pres-pw-abo", "3. Paywall & abo"],
-  ["pres-ratio", "4. Paywallratio"],
-  ["pres-abo-stabiel", "5. Abonneren"],
-  ["pres-piek-art", "6. Piekartikelen"],
-  ["pres-piek-kanaal", "7. Kan. piek"],
-  ["pres-nb-1k", "8. Nw. / 1k"],
-  ["pres-nb-device", "9. Nw. device"],
-  ["pres-conclusie", "10. Conclusies"],
-];
-
 export default function HistorischPresentatiePage() {
   const [funnel, setFunnel] = useState<HistorischFunnelMonthlyReport | null>(null);
   const [traffic, setTraffic] = useState<HistorischTrafficMonthlyReport | null>(null);
@@ -651,61 +637,32 @@ export default function HistorischPresentatiePage() {
     nbDevicePres,
   ]);
 
-  function go(id: string) {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   return (
     <>
       <header className={`fnl-header print:break-inside-avoid ${PRES_CONTAINER} py-8 print:shadow-none`}>
-        <div className="fnl-header-inner flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="mb-4 flex flex-wrap items-center gap-4">
-              <img
-                src="/fnl/logo-horizontal.svg"
-                alt="F&L Media"
-                width={220}
-                height={48}
-                className="h-10 w-auto"
-              />
-            </div>
-            <p className="fnl-meta">Presentatie · Historisch Nieuwsblad</p>
-            <h1 className="fnl-display mt-2 text-balance">
-              Analyse online/digitale instroom Historisch Nieuwsblad
-            </h1>
-            <p className="fnl-lede mt-4 max-w-3xl text-pretty">
-              Paywall, piekartikelen en nieuwsbriefblokken — januari 2024 t/m april 2026
-            </p>
+        <div className="fnl-header-inner max-w-3xl">
+          <div className="mb-4 flex flex-wrap items-center gap-6">
+            <img
+              src="/fnl/logo-horizontal.svg"
+              alt="F&L Media"
+              width={220}
+              height={48}
+              className="h-10 w-auto"
+            />
+            <img
+              src="/hn/logo.svg"
+              alt="Historisch Nieuwsblad"
+              width={221}
+              height={72}
+              className="h-10 w-auto"
+            />
           </div>
-          <div className="fnl-slide-muted shrink-0 space-y-3 rounded-lg border border-[var(--fnl-ink-12)] px-5 py-4 text-sm">
-            <p className="text-[var(--fnl-ink-2)]">
-              <span className="font-semibold text-[var(--fnl-ink)]">Databron:</span> GA4 Data API
-            </p>
-            <p className="text-[var(--fnl-ink-2)]">
-              <span className="font-semibold text-[var(--fnl-ink)]">Periode:</span> januari 2024 t/m april 2026
-            </p>
-            <div className="flex flex-col gap-2 print:hidden">
-              <Link href="/historisch" className="fnl-btn w-full text-center">
-                Terug naar dashboard
-              </Link>
-              <Link href="/historisch" className="fnl-link block py-2 text-center text-sm font-semibold">
-                Ruwe data en exports
-              </Link>
-            </div>
-          </div>
+          <p className="fnl-meta">Presentatie · Historisch Nieuwsblad</p>
+          <h1 className="fnl-display mt-2 text-balance">
+            Analyse online/digitale instroom Historisch Nieuwsblad
+          </h1>
         </div>
       </header>
-
-      <nav className={`fnl-sticky-nav sticky top-0 z-40 print:hidden ${PRES_CONTAINER} py-3`}>
-        <p className="fnl-meta mb-2">Snel naar sectie</p>
-        <div className="flex flex-wrap gap-1.5">
-          {NAV.map(([id, label]) => (
-            <button key={id} type="button" onClick={() => go(id)} className="fnl-nav-pill">
-              {label}
-            </button>
-          ))}
-        </div>
-      </nav>
 
       <main className={`${PRES_CONTAINER} space-y-16 py-12 print:space-y-10 print:py-6`}>
         {loading && <p className="text-[var(--fnl-ink-3)]">Bezig met laden…</p>}
@@ -1276,47 +1233,6 @@ export default function HistorischPresentatiePage() {
                     <li key={t}>{t}</li>
                   ))}
                 </ul>
-              </div>
-
-              <div className="rounded-lg border border-[var(--fnl-ink-12)] bg-white p-4">
-                <p className="fnl-meta mb-3 font-semibold text-[var(--fnl-ink)]">
-                  Ontwikkeling jan. 2024
-                  {nbDevicePres.end.yearMonth ? ` → ${nbDevicePres.endColLabel}` : ""}
-                </p>
-                <div className="fnl-table-wrap overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-[var(--fnl-ink-12)]">
-                        <th className="px-3 py-2.5 font-semibold text-[var(--fnl-ink)]">Device</th>
-                        <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums text-[var(--fnl-ink)]">
-                          Jan. 2024
-                        </th>
-                        <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums text-[var(--fnl-ink)]">
-                          {nbDevicePres.endColLabel}
-                        </th>
-                        <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums text-[var(--fnl-ink)]">
-                          Verschil
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {nbDevicePres.deltaRows.map((row) => (
-                        <tr key={row.device} className="border-b border-[rgba(0,30,59,0.06)] last:border-0">
-                          <td className="px-3 py-2.5 font-medium text-[var(--fnl-ink)]">{row.device}</td>
-                          <td className="px-3 py-2.5 text-right text-base font-semibold tabular-nums text-[var(--fnl-blue-deep)]">
-                            {formatPer1k2(row.jan)}
-                          </td>
-                          <td className="px-3 py-2.5 text-right text-base font-semibold tabular-nums text-[var(--fnl-blue-deep)]">
-                            {formatPer1k2(row.end)}
-                          </td>
-                          <td className="px-3 py-2.5 text-right text-base font-semibold tabular-nums text-[var(--fnl-blue-deep)]">
-                            {formatPctChangeJanEnd(row.jan, row.end)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
               </div>
 
               <p className="text-xs leading-relaxed text-[var(--fnl-ink-3)]">
