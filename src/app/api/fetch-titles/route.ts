@@ -4,70 +4,59 @@ import {
   setCachedTitle,
   getCachedTitles,
 } from "@/lib/title-cache";
+import {
+  getCachedOgImage,
+  setCachedOgImage,
+  getCachedOgImages,
+} from "@/lib/og-image-cache";
+import { fetchPageOgMeta } from "@/lib/og-meta";
 
-function extractTitle(html: string): string | null {
-  const ogMatch =
-    html.match(
-      /<meta\s+[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i
-    ) ||
-    html.match(
-      /<meta\s+[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i
-    );
-  if (ogMatch) return ogMatch[1].trim();
-
-  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  if (titleMatch) return titleMatch[1].trim();
-
-  return null;
-}
-
-async function fetchTitle(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; SEO-News-Monitor/1.0; +https://github.com)",
-      },
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    return extractTitle(html);
-  } catch {
-    return null;
-  }
-}
+const MAX_URLS = 48;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const urls = Array.isArray(body.urls) ? body.urls : [];
-    if (urls.length === 0) return NextResponse.json({});
+    if (urls.length === 0) {
+      return NextResponse.json({ titles: {}, images: {} });
+    }
 
-    const result: Record<string, string> = {};
-    const toFetch: string[] = [];
+    const trimmed = urls
+      .filter((u: unknown): u is string => typeof u === "string")
+      .map((u: string) => u.trim())
+      .filter(Boolean)
+      .slice(0, MAX_URLS);
 
-    const cached = await getCachedTitles(urls);
-    for (const url of urls) {
-      const c = cached[url] ?? (await getCachedTitle(url));
-      if (c) {
-        result[url] = c;
-      } else {
-        toFetch.push(url);
+    const titlesOut: Record<string, string> = {};
+    const imagesOut: Record<string, string> = {};
+    const needFetch = new Set<string>();
+
+    const cachedTitles = await getCachedTitles(trimmed);
+    const cachedImages = await getCachedOgImages(trimmed);
+
+    for (const url of trimmed) {
+      const t = cachedTitles[url] ?? (await getCachedTitle(url));
+      const img = cachedImages[url] ?? (await getCachedOgImage(url));
+      if (t) titlesOut[url] = t;
+      if (img) imagesOut[url] = img;
+      if (!t || !img) needFetch.add(url);
+    }
+
+    for (const url of needFetch) {
+      const meta = await fetchPageOgMeta(url);
+      if (meta.title) {
+        titlesOut[url] = meta.title;
+        await setCachedTitle(url, meta.title);
+      }
+      if (meta.imageUrl) {
+        imagesOut[url] = meta.imageUrl;
+        await setCachedOgImage(url, meta.imageUrl);
       }
     }
 
-    for (const url of toFetch) {
-      const title = await fetchTitle(url);
-      if (title) {
-        result[url] = title;
-        await setCachedTitle(url, title);
-      }
-    }
-
-    return NextResponse.json(result);
+    return NextResponse.json({ titles: titlesOut, images: imagesOut });
   } catch (err) {
     console.error("Fetch titles error:", err);
-    return NextResponse.json({}, { status: 500 });
+    return NextResponse.json({ titles: {}, images: {} }, { status: 500 });
   }
 }

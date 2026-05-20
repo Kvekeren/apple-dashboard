@@ -12,13 +12,13 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     return NextResponse.redirect(
-      `${baseUrl}/monitoring?gsc_error=${encodeURIComponent(error)}`
+      `${baseUrl}/?gsc_error=${encodeURIComponent(error)}`
     );
   }
 
   if (!code) {
     return NextResponse.redirect(
-      `${baseUrl}/monitoring?gsc_error=no_code`
+      `${baseUrl}/?gsc_error=no_code`
     );
   }
 
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(
-      `${baseUrl}/monitoring?gsc_error=config`
+      `${baseUrl}/?gsc_error=config`
     );
   }
 
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       const err = await tokenResponse.text();
       console.error("Token exchange failed:", err);
       return NextResponse.redirect(
-        `${baseUrl}/monitoring?gsc_error=token_failed`
+        `${baseUrl}/?gsc_error=token_failed`
       );
     }
 
@@ -81,11 +81,11 @@ export async function GET(request: NextRequest) {
       path: "/",
     });
 
-    return NextResponse.redirect(`${baseUrl}/monitoring?gsc_connected=1`);
+    return NextResponse.redirect(`${baseUrl}/?gsc_connected=1`);
   } catch (err) {
     console.error("Auth callback error:", err);
     return NextResponse.redirect(
-      `${baseUrl}/monitoring?gsc_error=unknown`
+      `${baseUrl}/?gsc_error=unknown`
     );
   }
 }

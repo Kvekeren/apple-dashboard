@@ -7,8 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Inter: hoog leesbaar in UI/tabellen; merk blijft via kleuren (F&L-design) */
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,38 +49,56 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  /* F&L Media — zie F&L-design/README.md en colors_and_type.css */
+  --fnl-blue: #004077;
+  --fnl-blue-dark: #002f58;
+  --fnl-blue-deep: #001e3b;
+  --fnl-blue-soft: #dce7f0;
+  --fnl-blue-pale: #f0f4f8;
+  --fnl-ink: #001e3b;
+  --fnl-ink-2: #2b3d52;
+  --fnl-ink-3: #5c6b7c;
+  --fnl-success: #2e8b5f;
+  --fnl-warning: #c28a2e;
+  --fnl-danger: #c8362b;
+
+  --radius: 0.5rem;
+  --background: #ffffff;
+  --foreground: var(--fnl-ink);
+  --card: #ffffff;
+  --card-foreground: var(--fnl-ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--fnl-ink);
+  --primary: var(--fnl-blue);
+  --primary-foreground: #ffffff;
+  --secondary: var(--fnl-blue-pale);
+  --secondary-foreground: var(--fnl-ink);
+  --muted: var(--fnl-blue-pale);
+  --muted-foreground: var(--fnl-ink-3);
+  --accent: var(--fnl-blue-soft);
+  --accent-foreground: var(--fnl-ink);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --border: rgba(0, 30, 59, 0.12);
+  --input: rgba(0, 30, 59, 0.12);
+  --ring: var(--fnl-blue);
+  --chart-1: #004077;
+  --chart-2: #1a5f96;
+  --chart-3: #5c7a94;
+  --chart-4: #c28a2e;
+  --chart-5: #2e8b5f;
+  --sidebar: #f7f9fb;
+  --sidebar-foreground: var(--fnl-ink);
+  --sidebar-primary: var(--fnl-blue);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--fnl-blue-pale);
+  --sidebar-accent-foreground: var(--fnl-ink);
+  --sidebar-border: rgba(0, 30, 59, 0.12);
+  --sidebar-ring: var(--fnl-blue);
+
+  --shadow-fnl-card: 0 1px 2px rgba(0, 30, 59, 0.04), 0 8px 24px rgba(0, 30, 59, 0.06);
+  --shadow-fnl-hover: 0 1px 2px rgba(0, 30, 59, 0.06), 0 14px 32px rgba(0, 30, 59, 0.1);
+
+  --container-max: 1200px;
 }
 
 .dark {
@@ -119,10 +138,81 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased leading-normal;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-semibold tracking-tight text-primary;
+  }
+}
+
+@layer components {
+  .fnl-card {
+    @apply rounded-[8px] border border-border bg-card text-card-foreground;
+    box-shadow: var(--shadow-fnl-card);
+  }
+  .fnl-card-hover {
+    @apply rounded-[8px] border border-border bg-card text-card-foreground;
+    box-shadow: var(--shadow-fnl-card);
+    @apply transition-[box-shadow,transform] duration-150 ease-[cubic-bezier(0.2,0.6,0.2,1)];
+  }
+  @media (hover: hover) {
+    .fnl-card-hover:hover {
+      box-shadow: var(--shadow-fnl-hover);
+      transform: translateY(-2px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fnl-card-hover {
+      transition: none;
+    }
+    .fnl-card-hover:hover {
+      transform: none;
+    }
+  }
+  .fnl-segment {
+    @apply inline-flex gap-1 rounded-[8px] border border-border bg-muted p-1;
+  }
+  .fnl-segment-item {
+    @apply rounded-[4px] px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors duration-150 ease-[cubic-bezier(0.2,0.6,0.2,1)] disabled:opacity-50;
+  }
+  .fnl-segment-item[data-active="true"] {
+    @apply bg-card font-semibold text-foreground shadow-sm;
+  }
+  .fnl-section-title {
+    @apply text-sm font-semibold text-primary;
+  }
+  .fnl-meta-label {
+    @apply text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground;
+  }
+  .fnl-monitoring-nav {
+    @apply border-b border-border/60;
+  }
+  @supports (backdrop-filter: blur(8px)) {
+    .fnl-monitoring-nav {
+      @apply bg-[color-mix(in_srgb,var(--fnl-blue-pale)_94%,transparent)] backdrop-blur-sm;
+    }
+  }
+  .fnl-monitoring-tabs {
+    @apply inline-flex min-w-0 flex-1 flex-nowrap items-stretch gap-0 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden;
+  }
+  .fnl-monitoring-tab {
+    @apply shrink-0 border-0 bg-transparent px-3 py-2 text-[13px] font-medium text-muted-foreground no-underline shadow-none transition-colors duration-150 ease-[cubic-bezier(0.2,0.6,0.2,1)] disabled:opacity-40 sm:px-4 sm:text-sm;
+  }
+  .fnl-monitoring-tab:hover:not(:disabled) {
+    @apply text-foreground;
+  }
+  .fnl-monitoring-tab[data-active="true"] {
+    @apply font-semibold text-primary shadow-none;
+  }
+  .fnl-google-dialog {
+    margin: auto;
+  }
+  .fnl-google-dialog::backdrop {
+    background: rgba(0, 30, 59, 0.2);
   }
 }

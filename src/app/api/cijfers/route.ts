@@ -3,44 +3,18 @@ import { cookies } from "next/headers";
 import {
   fetchDiscoverData,
   fetchSearchData,
-  getDateRange,
-  getDateRangeOffset,
 } from "@/lib/search-console";
-import {
-  fetchGA4PageviewsByPage,
-  fetchGA4EventsByPage,
-} from "@/lib/ga4";
+import { fetchGA4PageviewsByPage } from "@/lib/ga4";
 import { getCachedCijfers, setCachedCijfers } from "@/lib/cijfers-cache";
+import { getGoogleAccessToken } from "@/lib/google-access-token";
+import { titleLabelFromPageUrl, listTitleLabelsInOrder } from "@/lib/site-titles";
+import { parseDashboardRangeFromRequest } from "@/lib/dashboard-date-range";
 
-const SOURCES = [
-  "iCreate",
-  "Gardeners' World",
-  "Historisch Nieuwsblad",
-  "Auto Review",
-] as const;
-
-const DOMAIN_TO_SOURCE: Record<string, string> = {
-  "icreatemagazine.nl": "iCreate",
-  "www.icreatemagazine.nl": "iCreate",
-  "gardenersworldmagazine.nl": "Gardeners' World",
-  "www.gardenersworldmagazine.nl": "Gardeners' World",
-  "historischnieuwsblad.nl": "Historisch Nieuwsblad",
-  "www.historischnieuwsblad.nl": "Historisch Nieuwsblad",
-  "autoreview.nl": "Auto Review",
-  "www.autoreview.nl": "Auto Review",
-};
+const SOURCES = listTitleLabelsInOrder();
 
 function getSourceFromUrl(url: string): string {
-  try {
-    const host = new URL(url).hostname;
-    return (
-      DOMAIN_TO_SOURCE[host] ??
-      DOMAIN_TO_SOURCE[host.replace(/^www\./, "")] ??
-      "Overig"
-    );
-  } catch {
-    return "Overig";
-  }
+  const lbl = titleLabelFromPageUrl(url);
+  return lbl === "Overig" ? "Overig" : lbl;
 }
 
 function canonicalUrl(url: string): string {
@@ -83,67 +57,20 @@ function toMetricValue(current: number, previous: number): MetricValue {
   return { current, previous, change, changePercent };
 }
 
-async function getAccessToken(cookieStore: Awaited<ReturnType<typeof cookies>>) {
-  let accessToken = cookieStore.get("gsc_access_token")?.value;
-  const refreshToken = cookieStore.get("gsc_refresh_token")?.value;
-  const expiry = cookieStore.get("gsc_token_expiry")?.value;
-
-  if (accessToken && expiry && Date.now() > parseInt(expiry, 10) - 60000) {
-    accessToken = undefined;
-  }
-
-  if (!accessToken && refreshToken) {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    if (!clientId || !clientSecret) return null;
-
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: "refresh_token",
-      }),
-    });
-
-    if (!tokenResponse.ok) return null;
-
-    const tokens = await tokenResponse.json();
-    accessToken = tokens.access_token;
-
-    cookieStore.set("gsc_access_token", tokens.access_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60,
-      path: "/",
-    });
-    cookieStore.set("gsc_token_expiry", String(Date.now() + tokens.expires_in * 1000), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60,
-      path: "/",
-    });
-  }
-
-  return accessToken ?? null;
-}
-
 export async function GET(request: NextRequest) {
   const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
+  const { startDate: cStart, endDate: cEnd, previous: pRange, periodKey } =
+    parseDashboardRangeFromRequest(request);
 
   if (!forceRefresh) {
-    const cached = await getCachedCijfers();
+    const cached = await getCachedCijfers(periodKey);
     if (cached) {
       return NextResponse.json(cached);
     }
   }
 
   const cookieStore = await cookies();
-  const accessToken = await getAccessToken(cookieStore);
+  const accessToken = await getGoogleAccessToken(cookieStore);
 
   if (!accessToken) {
     return NextResponse.json(
@@ -151,10 +78,6 @@ export async function GET(request: NextRequest) {
       { status: 401 }
     );
   }
-
-  const days = 7;
-  const currentRange = getDateRange(days);
-  const previousRange = getDateRangeOffset(days, days);
 
   try {
     const [
@@ -164,21 +87,15 @@ export async function GET(request: NextRequest) {
       searchPrevious,
       pageviewsCurrent,
       pageviewsPrevious,
-      newsletterCurrent,
-      newsletterPrevious,
     ] = await Promise.all([
-      fetchDiscoverData(accessToken, currentRange.startDate, currentRange.endDate),
-      fetchDiscoverData(accessToken, previousRange.startDate, previousRange.endDate),
-      fetchSearchData(accessToken, currentRange.startDate, currentRange.endDate),
-      fetchSearchData(accessToken, previousRange.startDate, previousRange.endDate),
-      fetchGA4PageviewsByPage(accessToken, currentRange.startDate, currentRange.endDate),
-      fetchGA4PageviewsByPage(accessToken, previousRange.startDate, previousRange.endDate),
-      fetchGA4EventsByPage(accessToken, currentRange.startDate, currentRange.endDate),
-      fetchGA4EventsByPage(accessToken, previousRange.startDate, previousRange.endDate),
+      fetchDiscoverData(accessToken, cStart, cEnd),
+      fetchDiscoverData(accessToken, pRange.startDate, pRange.endDate),
+      fetchSearchData(accessToken, cStart, cEnd),
+      fetchSearchData(accessToken, pRange.startDate, pRange.endDate),
+      fetchGA4PageviewsByPage(accessToken, cStart, cEnd),
+      fetchGA4PageviewsByPage(accessToken, pRange.startDate, pRange.endDate),
     ]);
 
-    // Zelfde by-page data als Discover-tab; totalen = som per bron met URL-deduplicatie.
-    // Neem per canonical URL het max (zelfde pagina kan als meerdere URL-varianten terugkomen).
     function sumBySourceDeduped(
       rows: { url: string; clicks: number }[]
     ): Map<string, number> {
@@ -215,19 +132,16 @@ export async function GET(request: NextRequest) {
     const pageviewsBySourceCurrent = new Map<string, number>();
     const pageviewsBySourcePrevious = new Map<string, number>();
     for (const r of pageviewsCurrent) {
-      pageviewsBySourceCurrent.set(r.source, (pageviewsBySourceCurrent.get(r.source) ?? 0) + r.count);
+      pageviewsBySourceCurrent.set(
+        r.source,
+        (pageviewsBySourceCurrent.get(r.source) ?? 0) + r.count
+      );
     }
     for (const r of pageviewsPrevious) {
-      pageviewsBySourcePrevious.set(r.source, (pageviewsBySourcePrevious.get(r.source) ?? 0) + r.count);
-    }
-
-    const newsletterBySourceCurrent = new Map<string, number>();
-    const newsletterBySourcePrevious = new Map<string, number>();
-    for (const r of newsletterCurrent) {
-      newsletterBySourceCurrent.set(r.source, (newsletterBySourceCurrent.get(r.source) ?? 0) + r.count);
-    }
-    for (const r of newsletterPrevious) {
-      newsletterBySourcePrevious.set(r.source, (newsletterBySourcePrevious.get(r.source) ?? 0) + r.count);
+      pageviewsBySourcePrevious.set(
+        r.source,
+        (pageviewsBySourcePrevious.get(r.source) ?? 0) + r.count
+      );
     }
 
     const sources: CijfersSource[] = SOURCES.map((source) => {
@@ -237,19 +151,15 @@ export async function GET(request: NextRequest) {
       const discPrev = discoverBySourcePrevious.get(source) ?? 0;
       const searchCur = searchBySourceCurrent.get(source) ?? 0;
       const searchPrev = searchBySourcePrevious.get(source) ?? 0;
-      const nlCur = newsletterBySourceCurrent.get(source) ?? 0;
-      const nlPrev = newsletterBySourcePrevious.get(source) ?? 0;
 
-      // Search Console: Discover en Search zijn aparte rapporten in GSC.
-      // Sommige API-implementaties geven web-data terug voor type "discover".
-      // Als Discover-clicks te hoog lijken (vergelijkbaar met Search), vergelijk dan met
-      // GSC Discover-tab (typisch lager) vs Search-tab.
       const metrics: Record<string, MetricValue> = {
         pageviews: toMetricValue(pvCur, pvPrev),
         discoverClicks: toMetricValue(discCur, discPrev),
         searchClicks: toMetricValue(searchCur, searchPrev),
-        searchConsoleTotal: toMetricValue(discCur + searchCur, discPrev + searchPrev),
-        newsletterSignups: toMetricValue(nlCur, nlPrev),
+        searchConsoleTotal: toMetricValue(
+          discCur + searchCur,
+          discPrev + searchPrev
+        ),
       };
 
       return { source, metrics };
@@ -257,13 +167,13 @@ export async function GET(request: NextRequest) {
 
     const response: CijfersResponse = {
       periods: {
-        current: currentRange,
-        previous: previousRange,
+        current: { startDate: cStart, endDate: cEnd },
+        previous: pRange,
       },
       sources,
     };
 
-    await setCachedCijfers(response);
+    await setCachedCijfers(response, periodKey);
 
     return NextResponse.json(response);
   } catch (err) {

@@ -1,21 +1,93 @@
 import { google } from "googleapis";
 
-export const SITE_URLS: Record<string, string> = {
-  "iCreate": "https://www.icreatemagazine.nl/",
-  "Gardeners' World": "https://www.gardenersworldmagazine.nl/",
-  "Historisch Nieuwsblad": "https://www.historischnieuwsblad.nl/",
-  "Auto Review": "https://www.autoreview.nl/",
-};
+import type { SiteTitleLabel } from "@/lib/site-titles";
+import { resolveSiteTitles } from "@/lib/site-titles";
+
+/** @deprecated gebruik resolveSiteTitles() — alleen nog voor legacy debug-antwoorden */
+export const SITE_URLS: Record<string, string> = Object.fromEntries(
+  resolveSiteTitles().map((t) => [t.label, t.gscSiteUrl ?? ""])
+);
 
 /**
  * Als GSC_SINGLE_PROPERTY_URL is gezet: alleen die property opvragen.
- * Handig als je in GSC één property of property set bekijkt en de totalen wilt matchen.
- * Voorbeeld: GSC_SINGLE_PROPERTY_URL=https://www.gardenersworldmagazine.nl/
  */
-function getActiveSiteUrls(): string[] {
+export function listGscSiteUrls(): string[] {
   const single = process.env.GSC_SINGLE_PROPERTY_URL?.trim();
   if (single) return [single];
-  return Object.values(SITE_URLS);
+  return resolveSiteTitles()
+    .map((t) => t.gscSiteUrl)
+    .filter((u): u is string => Boolean(u?.trim()));
+}
+
+/** Totaal clicks + impressions voor één GSC-property (aggregatie zonder dimensions). */
+export async function fetchGscTotalsForSite(
+  accessToken: string,
+  siteUrl: string,
+  type: "web" | "discover",
+  startDate: string,
+  endDate: string
+): Promise<{ clicks: number; impressions: number; error?: string }> {
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
+  const searchconsole = google.searchconsole({ version: "v1", auth });
+
+  try {
+    const { data } = await searchconsole.searchanalytics.query({
+      siteUrl,
+      requestBody: {
+        startDate,
+        endDate,
+        type,
+      },
+    });
+    let sumClicks = 0;
+    let sumImp = 0;
+    if (data.rows?.length) {
+      for (const row of data.rows) {
+        sumClicks += row.clicks ?? 0;
+        sumImp += row.impressions ?? 0;
+      }
+    }
+    return { clicks: sumClicks, impressions: sumImp };
+  } catch (err) {
+    console.error(`GSC totals failed for ${siteUrl} (${type}):`, err);
+    return { clicks: 0, impressions: 0, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export type GscTitleSummaries = Record<
+  string,
+  { web: { clicks: number; impressions: number }; discover: { clicks: number; impressions: number } }
+>;
+
+export async function fetchGscSummariesByTitle(
+  accessToken: string,
+  startDate: string,
+  endDate: string
+): Promise<{
+  byTitle: GscTitleSummaries;
+  errors: { title: SiteTitleLabel; channel: "web" | "discover"; message: string }[];
+}> {
+  const byTitle: GscTitleSummaries = {};
+  const errors: { title: SiteTitleLabel; channel: "web" | "discover"; message: string }[] = [];
+
+  for (const t of resolveSiteTitles()) {
+    const siteUrl = t.gscSiteUrl;
+    if (!siteUrl?.trim()) continue;
+
+    const web = await fetchGscTotalsForSite(accessToken, siteUrl, "web", startDate, endDate);
+    const disc = await fetchGscTotalsForSite(accessToken, siteUrl, "discover", startDate, endDate);
+
+    byTitle[t.label] = {
+      web: { clicks: web.clicks, impressions: web.impressions },
+      discover: { clicks: disc.clicks, impressions: disc.impressions },
+    };
+
+    if (web.error) errors.push({ title: t.label, channel: "web", message: web.error });
+    if (disc.error) errors.push({ title: t.label, channel: "discover", message: disc.error });
+  }
+
+  return { byTitle, errors };
 }
 
 export interface DiscoverRow {
@@ -41,7 +113,7 @@ export async function fetchSearchData(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const allRows: SearchRow[] = [];
 
-  for (const siteUrl of getActiveSiteUrls()) {
+  for (const siteUrl of listGscSiteUrls()) {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -86,7 +158,7 @@ export async function fetchDiscoverData(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const allRows: DiscoverRow[] = [];
 
-  for (const siteUrl of getActiveSiteUrls()) {
+  for (const siteUrl of listGscSiteUrls()) {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -131,7 +203,7 @@ export async function fetchDiscoverDataByProperty(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const results: { siteUrl: string; rows: DiscoverRow[] }[] = [];
 
-  for (const siteUrl of getActiveSiteUrls()) {
+  for (const siteUrl of listGscSiteUrls()) {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -177,7 +249,7 @@ export async function fetchSearchDataByProperty(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const results: { siteUrl: string; rows: SearchRow[] }[] = [];
 
-  for (const siteUrl of getActiveSiteUrls()) {
+  for (const siteUrl of listGscSiteUrls()) {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -223,7 +295,7 @@ export async function fetchSearchTotals(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const results: { siteUrl: string; clicks: number }[] = [];
 
-  for (const siteUrl of getActiveSiteUrls()) {
+  for (const siteUrl of listGscSiteUrls()) {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -255,7 +327,7 @@ export async function fetchDiscoverTotals(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const results: { siteUrl: string; clicks: number }[] = [];
 
-  for (const siteUrl of getActiveSiteUrls()) {
+  for (const siteUrl of listGscSiteUrls()) {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -294,6 +366,16 @@ export function getDateRangeOffset(
   end.setDate(end.getDate() - offsetDays);
   const start = new Date(end);
   start.setDate(start.getDate() - days);
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
+  };
+}
+
+/** Huidige kalendermaand t/m vandaag (inclusief). */
+export function getCurrentCalendarMonthRange(): { startDate: string; endDate: string } {
+  const end = new Date();
+  const start = new Date(end.getFullYear(), end.getMonth(), 1);
   return {
     startDate: start.toISOString().slice(0, 10),
     endDate: end.toISOString().slice(0, 10),

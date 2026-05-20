@@ -1,24 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import { NextResponse } from "next/server";
-
-const NEWS_SOURCES = [
-  {
-    name: "iCreate",
-    url: "https://www.icreatemagazine.nl/news-sitemap.xml",
-  },
-  {
-    name: "Gardeners' World",
-    url: "https://www.gardenersworldmagazine.nl/news-sitemap.xml",
-  },
-  {
-    name: "Historisch Nieuwsblad",
-    url: "https://www.historischnieuwsblad.nl/news-sitemap.xml",
-  },
-  {
-    name: "Auto Review",
-    url: "https://www.autoreview.nl/google-news-sitemap.xml",
-  },
-] as const;
+import { fetchPageOgMeta } from "@/lib/og-meta";
+import { listNewsSitemapFeeds } from "@/lib/site-titles";
 
 export interface NewsArticle {
   source: string;
@@ -61,34 +44,6 @@ async function fetchFavicon(siteUrl: string): Promise<string | null> {
     if (!res.ok) return null;
     const html = await res.text();
     return extractFavicon(html, baseUrl);
-  } catch {
-    return null;
-  }
-}
-
-function extractOgImage(html: string): string | null {
-  const match =
-    html.match(
-      /<meta\s+[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i
-    ) ||
-    html.match(
-      /<meta\s+[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i
-    );
-  return match ? match[1].trim() : null;
-}
-
-async function fetchOgImage(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; SEO-News-Monitor/1.0; +https://github.com)",
-      },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    return extractOgImage(html);
   } catch {
     return null;
   }
@@ -174,6 +129,7 @@ function extractNewsFromXml(xml: string, sourceName: string): NewsArticle[] {
 
 export async function GET() {
   try {
+    const NEWS_SOURCES = listNewsSitemapFeeds();
     const fetchPromises = NEWS_SOURCES.map(async (source) => {
       const response = await fetch(source.url, {
         headers: {
@@ -187,7 +143,7 @@ export async function GET() {
       }
 
       const xml = await response.text();
-      return extractNewsFromXml(xml, source.name);
+      return extractNewsFromXml(xml, source.label);
     });
 
     const results = await Promise.all(fetchPromises);
@@ -203,7 +159,7 @@ export async function GET() {
     const faviconPromises = NEWS_SOURCES.map(async (source) => {
       const baseUrl = source.url.replace(/\/[^/]*$/, "/");
       const favicon = await fetchFavicon(baseUrl);
-      return { name: source.name, favicon };
+      return { name: source.label, favicon };
     });
     const favicons = await Promise.all(faviconPromises);
     const faviconMap = Object.fromEntries(
@@ -216,11 +172,10 @@ export async function GET() {
     const CONCURRENCY = 10;
     for (let i = 0; i < allArticles.length; i += CONCURRENCY) {
       const batch = allArticles.slice(i, i + CONCURRENCY);
-      const images = await Promise.all(
-        batch.map((a) => fetchOgImage(a.url))
-      );
+      const metas = await Promise.all(batch.map((a) => fetchPageOgMeta(a.url)));
       batch.forEach((a, j) => {
-        if (images[j]) a.imageUrl = images[j] ?? undefined;
+        const img = metas[j]?.imageUrl;
+        if (img) a.imageUrl = img;
         a.faviconUrl = faviconMap[a.source];
       });
     }

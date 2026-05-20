@@ -3,7 +3,7 @@ import { existsSync } from "fs";
 import path from "path";
 
 const CACHE_DIR = process.env.VERCEL ? "/tmp" : path.join(process.cwd(), "data");
-const CACHE_FILE = path.join(CACHE_DIR, "cijfers-cache.json");
+const CACHE_BASE = path.join(CACHE_DIR, "cijfers-cache");
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 uur
 
 export interface CachedCijfers {
@@ -11,7 +11,13 @@ export interface CachedCijfers {
   timestamp: number;
 }
 
-export async function getCachedCijfers(): Promise<unknown | null> {
+function cachePath(periodKey: string): string {
+  const safe = periodKey.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 128);
+  return `${CACHE_BASE}-${safe}.json`;
+}
+
+export async function getCachedCijfers(periodKey: string): Promise<unknown | null> {
+  const CACHE_FILE = cachePath(periodKey);
   try {
     if (!existsSync(CACHE_FILE)) return null;
     const raw = await readFile(CACHE_FILE, "utf-8");
@@ -23,7 +29,8 @@ export async function getCachedCijfers(): Promise<unknown | null> {
   }
 }
 
-export async function setCachedCijfers(data: unknown): Promise<void> {
+export async function setCachedCijfers(data: unknown, periodKey: string): Promise<void> {
+  const CACHE_FILE = cachePath(periodKey);
   try {
     if (!existsSync(CACHE_DIR)) {
       await mkdir(CACHE_DIR, { recursive: true });
