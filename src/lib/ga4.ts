@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 
+import { slugFromUrl } from "@/lib/monitoring/shared";
 import type { ResolvedSiteTitle } from "@/lib/site-titles";
 import { resolveSiteTitles } from "@/lib/site-titles";
 
@@ -12,22 +13,17 @@ function titlesWithGa4(): ResolvedSiteTitle[] {
  * Consistent voor maandbereiken; realtime gebruikt elders `activeUsers`.
  */
 
-export interface GA4PageviewsByPage {
-  url: string;
-  count: number;
-  source: string;
-}
-
-export async function fetchGA4PageviewsByPage(
+/** Totaal screenPageViews per merk (geen URL-breakdown — geschikt voor YoY-KPI's). */
+export async function fetchGA4ScreenPageViewsBySource(
   accessToken: string,
   startDate: string,
   endDate: string
-): Promise<GA4PageviewsByPage[]> {
+): Promise<{ source: string; count: number }[]> {
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });
   const analyticsdata = google.analyticsdata({ version: "v1beta", auth });
 
-  const results: GA4PageviewsByPage[] = [];
+  const results: { source: string; count: number }[] = [];
 
   for (const t of titlesWithGa4()) {
     const propertyId = t.ga4PropertyId!;
@@ -35,23 +31,20 @@ export async function fetchGA4PageviewsByPage(
       const { data } = await analyticsdata.properties.runReport({
         property: `properties/${propertyId}`,
         requestBody: {
-          dimensions: [{ name: "pageLocation" }],
           metrics: [{ name: "screenPageViews" }],
           dateRanges: [{ startDate, endDate }],
         },
       });
 
-      if (data.rows) {
-        for (const row of data.rows) {
-          const url = row.dimensionValues?.[0]?.value ?? "";
-          const count = parseInt(row.metricValues?.[0]?.value ?? "0", 10);
-          if (url && count > 0) {
-            results.push({ url, count, source: t.label });
-          }
-        }
+      let count = 0;
+      const row = data.rows?.[0];
+      if (row) {
+        count = parseInt(row.metricValues?.[0]?.value ?? "0", 10);
       }
+      results.push({ source: t.label, count });
     } catch (err) {
-      console.error(`GA4 pageviews failed for ${t.label}:`, err);
+      console.error(`GA4 screenPageViews total failed for ${t.label}:`, err);
+      results.push({ source: t.label, count: 0 });
     }
   }
 
@@ -211,25 +204,79 @@ export interface GA4TopPageRow {
   screenPageViews: number;
 }
 
-/** Sluit homepage, overzichtspaden en CMS-lijsten uit voor “artikelen”. */
-function isLikelyArticlePath(pathRaw: string, pageTitle: string): boolean {
-  const title = (pageTitle || "").trim();
-  if (!title || title === "(not set)") return false;
+/** Sectie-indexen (geen artikel) bij ontbrekende GA4-paginatitel. */
+const ARTICLE_INDEX_SLUGS = new Set([
+  "nieuws",
+  "news",
+  "apps",
+  "gids",
+  "reviews",
+  "contact",
+  "forum",
+  "tips",
+  "deals",
+  "podcast",
+  "special",
+  "specials",
+  "video",
+  "videos",
+  "archief",
+  "privacy",
+  "cookie",
+  "cookies",
+  "login",
+  "register",
+  "over-ons",
+  "overig",
+  "shop",
+  "winkel",
+]);
 
-  let pathname = pathRaw.trim();
-  if (!pathname || pathname === "/") return false;
+function pathnameFromPageLocation(pageLocation: string): string {
+  const raw = pageLocation.trim();
+  if (!raw) return "";
   try {
-    if (pathname.includes("://")) pathname = new URL(pathname).pathname;
+    if (raw.includes("://")) return new URL(raw).pathname || "/";
+    if (raw.includes("/")) {
+      const slash = raw.indexOf("/");
+      const path = raw.slice(slash);
+      return path.startsWith("/") ? path : `/${path}`;
+    }
   } catch {
-    /* pagePath is meestal al een pad */
+    /* */
   }
+  return raw.startsWith("/") ? raw : `/${raw}`;
+}
+
+/** Sluit homepage, overzichtspaden en CMS-lijsten uit voor “artikelen”. */
+function isLikelyArticlePath(pageLocation: string, pageTitle: string): boolean {
+  const pathname = pathnameFromPageLocation(pageLocation);
+  if (!pathname || pathname === "/") return false;
 
   const lower = pathname.toLowerCase();
   const exclude =
     /^\/(wp-admin|wp-login|tag|tags|author|authors|categorie|category|categories|zoek|search|feed|page)(\/|$)/i;
   if (exclude.test(lower)) return false;
 
-  return true;
+  const title = (pageTitle || "").trim();
+  if (title && title !== "(not set)") return true;
+
+  // Veel properties (o.a. iPhoned/iCulture) leveren geen pageTitle; filter dan op pad.
+  const segments = lower.split("/").filter(Boolean);
+  if (segments.length >= 2) return true;
+  if (segments.length === 1) return !ARTICLE_INDEX_SLUGS.has(segments[0]!);
+  return false;
+}
+
+function displayTitleForTopPage(
+  pageTitle: string,
+  pageLocation: string,
+  pathname: string
+): string {
+  const title = (pageTitle || "").trim();
+  if (title && title !== "(not set)") return title;
+  if (pageLocation.includes("://")) return slugFromUrl(pageLocation);
+  return slugFromUrl(`https://local${pathname.startsWith("/") ? pathname : `/${pathname}`}`);
 }
 
 export async function fetchGA4TopPagesByScreenViews(
@@ -263,16 +310,11 @@ export async function fetchGA4TopPagesByScreenViews(
           const pageLocation = row.dimensionValues?.[0]?.value ?? "";
           const pageTitle = row.dimensionValues?.[1]?.value ?? "";
           const views = parseInt(row.metricValues?.[0]?.value ?? "0", 10);
-          let pagePath = pageLocation;
-          try {
-            if (pageLocation.includes("://")) pagePath = new URL(pageLocation).pathname;
-          } catch {
-            pagePath = pageLocation;
-          }
-          if (views > 0 && isLikelyArticlePath(pagePath, pageTitle)) {
+          const pathname = pathnameFromPageLocation(pageLocation);
+          if (views > 0 && isLikelyArticlePath(pageLocation, pageTitle)) {
             out.push({
               source: t.label,
-              pageTitle: pageTitle.trim(),
+              pageTitle: displayTitleForTopPage(pageTitle, pageLocation, pathname),
               url: pageLocation.trim(),
               screenPageViews: views,
             });

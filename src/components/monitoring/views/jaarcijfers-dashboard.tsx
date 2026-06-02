@@ -1,15 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import dynamic from "next/dynamic";
+import { getISOWeek, getISOWeekYear } from "date-fns";
 
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  normalizeIsoYearIsoWeek,
+  parseIsoYearIsoWeek,
+  toIsoYearIsoWeek,
+} from "@/lib/iso-week-range";
 import type { SiteTitleLabel } from "@/lib/site-titles";
 import {
   LINE_COLORS,
@@ -34,128 +33,229 @@ const YtdSessionsChartLazy = dynamic(
   }
 );
 
-export function JaarcijfersDashboard({
+function buildBrandYtdRows(
+  brand: SiteTitleLabel,
+  ytdWeeklyRows: YtdWeeklySessionRow[],
+  ytdWeeklyRowsPrevious: YtdWeeklySessionRow[],
+  ytdYear: number | null,
+  ytdPreviousYear: number | null,
+  ytdThroughWeek: number | null
+): Record<string, string | number>[] {
+  if (ytdYear == null) return [];
+
+  const sessionMap = new Map<string, number>();
+  for (const r of ytdWeeklyRows) {
+    if (r.source !== brand) continue;
+    const key = normalizeIsoYearIsoWeek(r.isoYearIsoWeek);
+    if (!key) continue;
+    const parsed = parseIsoYearIsoWeek(key);
+    if (!parsed || parsed.isoYear !== ytdYear) continue;
+    sessionMap.set(key, r.sessions);
+  }
+
+  const prevMap = new Map<string, number>();
+  if (ytdPreviousYear != null) {
+    for (const r of ytdWeeklyRowsPrevious) {
+      if (r.source !== brand) continue;
+      const key = normalizeIsoYearIsoWeek(r.isoYearIsoWeek);
+      if (!key) continue;
+      const parsed = parseIsoYearIsoWeek(key);
+      if (!parsed || parsed.isoYear !== ytdPreviousYear) continue;
+      prevMap.set(key, r.sessions);
+    }
+  }
+
+  const weekNumbers = new Set<number>();
+  for (const key of sessionMap.keys()) {
+    const parsed = parseIsoYearIsoWeek(key);
+    if (parsed) weekNumbers.add(parsed.isoWeek);
+  }
+  if (ytdThroughWeek != null) {
+    for (let w = 1; w <= ytdThroughWeek; w++) weekNumbers.add(w);
+  }
+  if (!weekNumbers.size) return [];
+
+  return [...weekNumbers].sort((a, b) => a - b).map((isoWeek) => {
+    const iso = toIsoYearIsoWeek(ytdYear, isoWeek);
+    const prevIso =
+      ytdPreviousYear != null ? toIsoYearIsoWeek(ytdPreviousYear, isoWeek) : null;
+    return {
+      weekKey: iso,
+      weekLabel: formatIsoYearIsoWeekAxis(iso),
+      [brand]: sessionMap.get(iso) ?? 0,
+      [YTD_PRIOR_SESSIONS_DATAKEY]:
+        prevIso != null ? (prevMap.get(prevIso) ?? 0) : 0,
+    };
+  });
+}
+
+function hasPriorYearData(
+  brand: SiteTitleLabel,
+  ytdWeeklyRowsPrevious: YtdWeeklySessionRow[],
+  ytdPreviousYear: number | null
+): boolean {
+  return (
+    ytdPreviousYear != null &&
+    ytdWeeklyRowsPrevious.some((r) => {
+      if (r.source !== brand) return false;
+      const parsed = parseIsoYearIsoWeek(r.isoYearIsoWeek);
+      return parsed?.isoYear === ytdPreviousYear;
+    })
+  );
+}
+
+function useBrandChartData(
+  ytdWeeklyRows: YtdWeeklySessionRow[],
+  ytdWeeklyRowsPrevious: YtdWeeklySessionRow[],
+  ytdYear: number | null,
+  ytdPreviousYear: number | null
+) {
+  const ytdThroughWeek =
+    ytdYear != null && ytdYear === getISOWeekYear(new Date())
+      ? getISOWeek(new Date())
+      : null;
+
+  return useMemo(() => {
+    const byBrand = new Map<SiteTitleLabel, Record<string, string | number>[]>();
+    for (const brand of SOURCE_LABELS) {
+      byBrand.set(
+        brand,
+        buildBrandYtdRows(
+          brand,
+          ytdWeeklyRows,
+          ytdWeeklyRowsPrevious,
+          ytdYear,
+          ytdPreviousYear,
+          ytdThroughWeek
+        )
+      );
+    }
+    return byBrand;
+  }, [
+    ytdWeeklyRows,
+    ytdWeeklyRowsPrevious,
+    ytdPreviousYear,
+    ytdThroughWeek,
+    ytdYear,
+  ]);
+}
+
+function YtdMetricSection({
+  title,
   ytdWeeklyRows,
   ytdWeeklyRowsPrevious,
+  ytdYear,
+  ytdPreviousYear,
+  emptyHint,
+}: {
+  title: string;
+  ytdWeeklyRows: YtdWeeklySessionRow[];
+  ytdWeeklyRowsPrevious: YtdWeeklySessionRow[];
+  ytdYear: number | null;
+  ytdPreviousYear: number | null;
+  emptyHint: string;
+}) {
+  const brandChartData = useBrandChartData(
+    ytdWeeklyRows,
+    ytdWeeklyRowsPrevious,
+    ytdYear,
+    ytdPreviousYear
+  );
+
+  const hasAnyRows = SOURCE_LABELS.some(
+    (brand) => (brandChartData.get(brand)?.length ?? 0) > 0
+  );
+
+  return (
+    <section className="mb-12">
+      <h2 className="mb-6 text-2xl font-bold tracking-tight text-primary sm:text-3xl">
+        {title}
+        {ytdYear != null ? ` · ${ytdYear}` : ""}
+      </h2>
+      {!hasAnyRows ? (
+        <p className="text-sm text-muted-foreground">{emptyHint}</p>
+      ) : (
+        <div className="flex flex-col gap-8">
+          {SOURCE_LABELS.map((brand) => {
+            const rows = brandChartData.get(brand) ?? [];
+            const showPriorYearLine = hasPriorYearData(
+              brand,
+              ytdWeeklyRowsPrevious,
+              ytdPreviousYear
+            );
+            return (
+              <div key={brand} className="flex flex-col gap-3">
+                <h3 className="fnl-section-title">{brand}</h3>
+                {!rows.length ? (
+                  <p className="text-sm text-muted-foreground">Geen data voor {brand}.</p>
+                ) : (
+                  <div className="fnl-card h-[280px] p-4 pt-2">
+                    <YtdSessionsChartLazy
+                      data={rows}
+                      brandFilter={brand}
+                      barKeys={[brand]}
+                      showPriorYearLine={showPriorYearLine}
+                      year={ytdYear}
+                      previousYear={ytdPreviousYear ?? null}
+                      lineColors={LINE_COLORS}
+                      priorYearDataKey={YTD_PRIOR_SESSIONS_DATAKEY}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function JaarcijfersDashboard({
+  pageviewsRows,
+  pageviewsRowsPrevious,
+  discoverRows,
+  discoverRowsPrevious,
+  searchRows,
+  searchRowsPrevious,
   ytdPreviousYear,
   ytdYear,
 }: {
-  ytdWeeklyRows: YtdWeeklySessionRow[];
-  ytdWeeklyRowsPrevious: YtdWeeklySessionRow[];
+  pageviewsRows: YtdWeeklySessionRow[];
+  pageviewsRowsPrevious: YtdWeeklySessionRow[];
+  discoverRows: YtdWeeklySessionRow[];
+  discoverRowsPrevious: YtdWeeklySessionRow[];
+  searchRows: YtdWeeklySessionRow[];
+  searchRowsPrevious: YtdWeeklySessionRow[];
   ytdPreviousYear: number | null;
   ytdYear: number | null;
 }) {
-  const [ytdBrandFilter, setYtdBrandFilter] = useState<"all" | SiteTitleLabel>("all");
-
-  const ytdChartRows = useMemo(() => {
-    const yearPrefix = ytdYear != null ? String(ytdYear) : null;
-    const filteredRows = yearPrefix
-      ? ytdWeeklyRows.filter((r) => r.isoYearIsoWeek.startsWith(yearPrefix))
-      : ytdWeeklyRows;
-    const weeks = [...new Set(filteredRows.map((r) => r.isoYearIsoWeek))].sort();
-    const sessionMap = new Map<string, number>();
-    for (const r of filteredRows) {
-      sessionMap.set(`${r.isoYearIsoWeek}\0${r.source}`, r.sessions);
-    }
-
-    if (ytdBrandFilter === "all") {
-      return weeks.map((iso) => {
-        const row: Record<string, string | number> = {
-          weekKey: iso,
-          weekLabel: formatIsoYearIsoWeekAxis(iso),
-        };
-        for (const lbl of SOURCE_LABELS) {
-          row[lbl] = sessionMap.get(`${iso}\0${lbl}`) ?? 0;
-        }
-        return row;
-      });
-    }
-
-    const brand = ytdBrandFilter;
-    const prevPrefix = ytdPreviousYear != null ? String(ytdPreviousYear) : null;
-    const prevFiltered =
-      prevPrefix != null
-        ? ytdWeeklyRowsPrevious.filter(
-            (r) => r.source === brand && r.isoYearIsoWeek.startsWith(prevPrefix)
-          )
-        : [];
-    const prevWeeks = [...new Set(prevFiltered.map((r) => r.isoYearIsoWeek))].sort();
-    const prevMap = new Map<string, number>();
-    for (const r of prevFiltered) {
-      prevMap.set(`${r.isoYearIsoWeek}\0${r.source}`, r.sessions);
-    }
-
-    return weeks.map((iso, i) => {
-      const prevIso = prevWeeks[i];
-      const prevVal = prevIso != null ? (prevMap.get(`${prevIso}\0${brand}`) ?? 0) : 0;
-      return {
-        weekKey: iso,
-        weekLabel: formatIsoYearIsoWeekAxis(iso),
-        [brand]: sessionMap.get(`${iso}\0${brand}`) ?? 0,
-        [YTD_PRIOR_SESSIONS_DATAKEY]: prevVal,
-      };
-    });
-  }, [ytdBrandFilter, ytdWeeklyRows, ytdWeeklyRowsPrevious, ytdPreviousYear, ytdYear]);
-
-  const ytdShowPriorYearLine =
-    ytdBrandFilter !== "all" &&
-    ytdPreviousYear != null &&
-    ytdWeeklyRowsPrevious.some(
-      (r) =>
-        r.source === ytdBrandFilter &&
-        r.isoYearIsoWeek.startsWith(String(ytdPreviousYear))
-    );
-
-  const ytdBarKeys: SiteTitleLabel[] =
-    ytdBrandFilter === "all" ? [...SOURCE_LABELS] : [ytdBrandFilter];
-
   return (
     <div className="mb-10">
-      <section>
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <h2 className="fnl-section-title shrink-0">
-            YTD-sessies (GA4) {ytdYear != null ? `· ${ytdYear}` : ""}
-            <span className="mt-1 block font-normal text-sm text-muted-foreground sm:mt-0 sm:ml-2 sm:inline">
-              per ISO-week
-              {ytdShowPriorYearLine && ytdPreviousYear != null
-                ? ` · lijn = ${ytdPreviousYear} (zelfde periode)`
-                : ""}
-            </span>
-          </h2>
-          <Select
-            value={ytdBrandFilter}
-            onValueChange={(v) => setYtdBrandFilter(v as "all" | SiteTitleLabel)}
-          >
-            <SelectTrigger className="h-9 w-full rounded-[4px] sm:w-[min(100%,260px)]">
-              <SelectValue placeholder="Merk" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Alle merken</SelectItem>
-              {SOURCE_LABELS.map((l) => (
-                <SelectItem key={l} value={l}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {!ytdChartRows.length ? (
-          <p className="text-sm text-muted-foreground">Geen data — GA4 .env?</p>
-        ) : (
-          <div className="fnl-card h-[340px] p-4 pt-2">
-            <YtdSessionsChartLazy
-              data={ytdChartRows}
-              brandFilter={ytdBrandFilter}
-              barKeys={ytdBarKeys}
-              showPriorYearLine={ytdShowPriorYearLine}
-              year={ytdYear}
-              previousYear={ytdPreviousYear ?? null}
-              lineColors={LINE_COLORS}
-              priorYearDataKey={YTD_PRIOR_SESSIONS_DATAKEY}
-            />
-          </div>
-        )}
-      </section>
+      <YtdMetricSection
+        title="Pageviews"
+        ytdWeeklyRows={pageviewsRows}
+        ytdWeeklyRowsPrevious={pageviewsRowsPrevious}
+        ytdYear={ytdYear}
+        ytdPreviousYear={ytdPreviousYear}
+        emptyHint="Geen data — GA4 .env?"
+      />
+      <YtdMetricSection
+        title="Discover"
+        ytdWeeklyRows={discoverRows}
+        ytdWeeklyRowsPrevious={discoverRowsPrevious}
+        ytdYear={ytdYear}
+        ytdPreviousYear={ytdPreviousYear}
+        emptyHint="Geen Discover-data — GSC-verbinding of rechten?"
+      />
+      <YtdMetricSection
+        title="Google Search"
+        ytdWeeklyRows={searchRows}
+        ytdWeeklyRowsPrevious={searchRowsPrevious}
+        ytdYear={ytdYear}
+        ytdPreviousYear={ytdPreviousYear}
+        emptyHint="Geen Search-data — GSC-verbinding of rechten?"
+      />
     </div>
   );
 }

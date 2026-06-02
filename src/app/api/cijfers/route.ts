@@ -4,7 +4,7 @@ import {
   fetchDiscoverData,
   fetchSearchData,
 } from "@/lib/search-console";
-import { fetchGA4PageviewsByPage } from "@/lib/ga4";
+import { fetchGA4ScreenPageViewsBySource } from "@/lib/ga4";
 import { getCachedCijfers, setCachedCijfers } from "@/lib/cijfers-cache";
 import { getGoogleAccessToken } from "@/lib/google-access-token";
 import { titleLabelFromPageUrl, listTitleLabelsInOrder } from "@/lib/site-titles";
@@ -61,9 +61,10 @@ export async function GET(request: NextRequest) {
   const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
   const { startDate: cStart, endDate: cEnd, previous: pRange, periodKey } =
     parseDashboardRangeFromRequest(request);
+  const cacheKey = `v2-${periodKey}`;
 
   if (!forceRefresh) {
-    const cached = await getCachedCijfers(periodKey);
+    const cached = await getCachedCijfers(cacheKey);
     if (cached) {
       return NextResponse.json(cached);
     }
@@ -92,8 +93,8 @@ export async function GET(request: NextRequest) {
       fetchDiscoverData(accessToken, pRange.startDate, pRange.endDate),
       fetchSearchData(accessToken, cStart, cEnd),
       fetchSearchData(accessToken, pRange.startDate, pRange.endDate),
-      fetchGA4PageviewsByPage(accessToken, cStart, cEnd),
-      fetchGA4PageviewsByPage(accessToken, pRange.startDate, pRange.endDate),
+      fetchGA4ScreenPageViewsBySource(accessToken, cStart, cEnd),
+      fetchGA4ScreenPageViewsBySource(accessToken, pRange.startDate, pRange.endDate),
     ]);
 
     function sumBySourceDeduped(
@@ -129,20 +130,12 @@ export async function GET(request: NextRequest) {
       searchPrevious.map((r) => ({ url: r.url, clicks: r.clicks }))
     );
 
-    const pageviewsBySourceCurrent = new Map<string, number>();
-    const pageviewsBySourcePrevious = new Map<string, number>();
-    for (const r of pageviewsCurrent) {
-      pageviewsBySourceCurrent.set(
-        r.source,
-        (pageviewsBySourceCurrent.get(r.source) ?? 0) + r.count
-      );
-    }
-    for (const r of pageviewsPrevious) {
-      pageviewsBySourcePrevious.set(
-        r.source,
-        (pageviewsBySourcePrevious.get(r.source) ?? 0) + r.count
-      );
-    }
+    const pageviewsBySourceCurrent = new Map(
+      pageviewsCurrent.map((r) => [r.source, r.count] as const)
+    );
+    const pageviewsBySourcePrevious = new Map(
+      pageviewsPrevious.map((r) => [r.source, r.count] as const)
+    );
 
     const sources: CijfersSource[] = SOURCES.map((source) => {
       const pvCur = pageviewsBySourceCurrent.get(source) ?? 0;
@@ -173,7 +166,7 @@ export async function GET(request: NextRequest) {
       sources,
     };
 
-    await setCachedCijfers(response, periodKey);
+    await setCachedCijfers(response, cacheKey);
 
     return NextResponse.json(response);
   } catch (err) {

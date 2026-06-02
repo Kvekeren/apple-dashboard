@@ -13,6 +13,7 @@ import {
 } from "recharts";
 
 import type { SiteTitleLabel } from "@/lib/site-titles";
+import { parseIsoYearIsoWeek } from "@/lib/iso-week-range";
 
 export type YtdSessionsChartProps = {
   data: Record<string, string | number>[];
@@ -60,12 +61,11 @@ export function YtdSessionsChart({
           labelFormatter={(_, payload) => {
             const row = payload?.[0]?.payload as { weekKey?: string } | undefined;
             const iso = row?.weekKey;
-            if (iso && iso.length >= 6) {
-              const y = iso.slice(0, 4);
-              const w = parseInt(iso.slice(4), 10);
-              return Number.isFinite(w) ? `Week ${w}, ${y}` : iso;
+            const parsed = iso ? parseIsoYearIsoWeek(iso) : null;
+            if (parsed) {
+              return `Week ${parsed.isoWeek}, ${parsed.isoYear}`;
             }
-            return "";
+            return iso ?? "";
           }}
         />
         {brandFilter === "all" || showPriorYearLine ? <Legend /> : null}

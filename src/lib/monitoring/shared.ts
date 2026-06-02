@@ -1,6 +1,8 @@
 import { format, parseISO } from "date-fns";
 import { nl } from "date-fns/locale";
 
+import { parseIsoYearIsoWeek } from "@/lib/iso-week-range";
+
 import {
   APPLE_TITLE_TABS,
   listTitleLabelsInOrder,
@@ -22,8 +24,8 @@ export const MONITORING_NAV: {
   { href: "/recent", label: "Recent" },
   { href: "/ideeen", label: "Ideeën" },
   { href: "/jaarcijfers", label: "Jaarcijfers", requiresAuth: true },
-  { href: "/discover", label: "Discover", requiresAuth: true },
-  { href: "/vergelijking", label: "Vergelijking", requiresAuth: true },
+  { href: "/conversie", label: "Conversies", requiresAuth: true },
+  { href: "/wwdc", label: "WWDC", requiresAuth: true },
 ];
 
 export const TOP_ARTICLES_INITIAL = 5;
@@ -42,9 +44,20 @@ export type YtdWeeklySessionRow = { source: string; isoYearIsoWeek: string; sess
 
 export const YTD_PRIOR_SESSIONS_DATAKEY = "priorYearSessions";
 
+/** Map GSC weekly clicks naar hetzelfde rijformaat als GA4 YTD-grafieken. */
+export function gscClicksRowsToYtdWeekly(
+  rows: { source: string; isoYearIsoWeek: string; clicks: number }[]
+): YtdWeeklySessionRow[] {
+  return rows.map((r) => ({
+    source: r.source,
+    isoYearIsoWeek: r.isoYearIsoWeek,
+    sessions: r.clicks,
+  }));
+}
+
 export const LINE_COLORS: Record<string, string> = {
   iCreate: "#004077",
-  iPhoned: "#1a5f96",
+  iPhoned: "#F97D23",
   iCulture: "#5c7a94",
 };
 
@@ -103,9 +116,8 @@ export interface SiteCfg {
 }
 
 export function formatIsoYearIsoWeekAxis(iso: string): string {
-  if (iso.length < 6) return iso;
-  const w = parseInt(iso.slice(4), 10);
-  return Number.isFinite(w) ? `w${w}` : iso;
+  const parsed = parseIsoYearIsoWeek(iso);
+  return parsed ? `w${parsed.isoWeek}` : iso;
 }
 
 export function primaryDomain(label: string): string | undefined {

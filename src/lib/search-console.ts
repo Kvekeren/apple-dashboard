@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 
+import { dateToIsoYearIsoWeek } from "@/lib/iso-week-range";
 import type { SiteTitleLabel } from "@/lib/site-titles";
 import { resolveSiteTitles } from "@/lib/site-titles";
 
@@ -380,4 +381,95 @@ export function getCurrentCalendarMonthRange(): { startDate: string; endDate: st
     startDate: start.toISOString().slice(0, 10),
     endDate: end.toISOString().slice(0, 10),
   };
+}
+
+function isoDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export interface GscWeeklyClicksRow {
+  source: SiteTitleLabel;
+  isoYearIsoWeek: string;
+  clicks: number;
+}
+
+/** GSC clicks per ISO-week per merk (dagelijkse `date`-dimensie geaggregeerd). */
+export async function fetchGscWeeklyClicksForRange(
+  accessToken: string,
+  type: "web" | "discover",
+  startDate: string,
+  endDate: string
+): Promise<GscWeeklyClicksRow[]> {
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
+  const searchconsole = google.searchconsole({ version: "v1", auth });
+  const rowsOut: GscWeeklyClicksRow[] = [];
+
+  for (const t of resolveSiteTitles()) {
+    const siteUrl = t.gscSiteUrl;
+    if (!siteUrl?.trim()) continue;
+
+    const weekClicks = new Map<string, number>();
+    try {
+      const { data } = await searchconsole.searchanalytics.query({
+        siteUrl,
+        requestBody: {
+          startDate,
+          endDate,
+          dimensions: ["date"],
+          type,
+          rowLimit: 400,
+        },
+      });
+
+      if (data.rows) {
+        for (const row of data.rows) {
+          const dateStr = row.keys?.[0];
+          if (!dateStr) continue;
+          const isoKey = dateToIsoYearIsoWeek(dateStr);
+          if (!isoKey) continue;
+          weekClicks.set(isoKey, (weekClicks.get(isoKey) ?? 0) + (row.clicks ?? 0));
+        }
+      }
+    } catch (err) {
+      console.error(`GSC weekly ${type} failed for ${t.label}:`, err);
+    }
+
+    for (const [isoYearIsoWeek, clicks] of weekClicks) {
+      rowsOut.push({ source: t.label, isoYearIsoWeek, clicks });
+    }
+  }
+
+  return rowsOut;
+}
+
+export interface GscWeeklyClicksYoYPayload {
+  current: GscWeeklyClicksRow[];
+  previous: GscWeeklyClicksRow[];
+}
+
+/** Huidig kalenderjaar YTD + hetzelfde kalendersegment één jaar eerder. */
+export async function fetchGscWeeklyClicksYearToDateWithYoY(
+  accessToken: string,
+  type: "web" | "discover",
+  referenceDate = new Date()
+): Promise<GscWeeklyClicksYoYPayload> {
+  const year = referenceDate.getFullYear();
+  const startCurrent = `${year}-01-01`;
+  const endCurrent = isoDateLocal(referenceDate);
+
+  const refPrev = new Date(referenceDate);
+  refPrev.setFullYear(refPrev.getFullYear() - 1);
+  const startPrevious = `${year - 1}-01-01`;
+  const endPrevious = isoDateLocal(refPrev);
+
+  const [current, previous] = await Promise.all([
+    fetchGscWeeklyClicksForRange(accessToken, type, startCurrent, endCurrent),
+    fetchGscWeeklyClicksForRange(accessToken, type, startPrevious, endPrevious),
+  ]);
+
+  return { current, previous };
 }

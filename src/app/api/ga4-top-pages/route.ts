@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
 
   const { startDate, endDate, periodKey } = parseDashboardRangeFromRequest(request);
-  const cacheKey = `ga4-top-pages-v3-${periodKey}`;
+  const cacheKey = `ga4-top-pages-v4-${periodKey}`;
 
   if (!forceRefresh) {
     const cached = await getCached<{ rows: Awaited<
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       accessToken,
       startDate,
       endDate,
-      120
+      200
     );
 
     const payload = {

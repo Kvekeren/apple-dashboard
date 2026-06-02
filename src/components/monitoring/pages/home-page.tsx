@@ -21,6 +21,8 @@ import {
   type TopTenMetricFilter,
   SOURCE_LABELS,
 } from "@/lib/monitoring/shared";
+import { useFetchPageTitlesAndImages } from "@/lib/monitoring/use-fetch-page-meta";
+import { titleLabelFromPageUrl } from "@/lib/site-titles";
 
 export function HomePage() {
   const { gscConnected } = useMonitoringAuth();
@@ -37,8 +39,6 @@ export function HomePage() {
   const [gscMap, setGscMap] = useState<Record<string, { clicks: number }>>({});
   const [gscSearchMap, setGscSearchMap] = useState<Record<string, { clicks: number }>>({});
   const [gscMeta, setGscMeta] = useState<{ startDate: string; endDate: string } | null>(null);
-  const [discTit, setDiscTit] = useState<Record<string, string>>({});
-  const [pageOgImages, setPageOgImages] = useState<Record<string, string>>({});
 
   const [topPg, setTopPg] = useState<
     { source: string; pageTitle: string; url: string; screenPageViews: number }[]
@@ -66,6 +66,42 @@ export function HomePage() {
     [yoyPeriodPreset, yoyCustomStart, yoyCustomEnd]
   );
 
+  useEffect(() => {
+    setTopArticlesVisible(TOP_ARTICLES_INITIAL);
+  }, [topArticlesRangeQs, topTenMetric]);
+
+  const urlsForTopOgFetch = useMemo(() => {
+    const out: string[] = [];
+    if (topTenMetric === "ga4") {
+      const bySource = aggregateWeeklyTopArticlesBySource(
+        topPg,
+        SOURCE_LABELS,
+        TOP_ARTICLES_MAX
+      );
+      for (const label of SOURCE_LABELS) {
+        for (const row of (bySource[label] ?? []).slice(0, topArticlesVisible)) {
+          out.push(row.url);
+        }
+      }
+    } else {
+      const map = topTenMetric === "gsc-discover" ? gscMap : gscSearchMap;
+      for (const label of SOURCE_LABELS) {
+        const urls = Object.entries(map)
+          .filter(([url, v]) => titleLabelFromPageUrl(url) === label && v.clicks > 0)
+          .sort((a, b) => b[1].clicks - a[1].clicks)
+          .slice(0, topArticlesVisible)
+          .map(([url]) => url);
+        out.push(...urls);
+      }
+    }
+    return out;
+  }, [topTenMetric, topPg, gscMap, gscSearchMap, topArticlesVisible]);
+
+  const { titles: discTit, images: pageOgImages } = useFetchPageTitlesAndImages(
+    urlsForTopOgFetch,
+    gscConnected
+  );
+
   const resolveTopTitle = useCallback(
     (url: string) => discTit[url.replace(/\/$/, "")] ?? discTit[url] ?? slugFromUrl(url),
     [discTit]
@@ -86,20 +122,6 @@ export function HomePage() {
       ),
     [weeklyTopAllBySource, topArticlesVisible]
   );
-
-  useEffect(() => {
-    setTopArticlesVisible(TOP_ARTICLES_INITIAL);
-  }, [topArticlesRangeQs, topTenMetric]);
-
-  const urlsForTopOgFetch = useMemo(() => {
-    const set = new Set<string>();
-    for (const label of SOURCE_LABELS) {
-      for (const row of (weeklyTopAllBySource[label] ?? []).slice(0, topArticlesVisible)) {
-        set.add(row.url);
-      }
-    }
-    return [...set];
-  }, [weeklyTopAllBySource, topArticlesVisible]);
 
   useEffect(() => {
     fetch("/api/site-config")
@@ -188,20 +210,6 @@ export function HomePage() {
     void loadCjfYoy();
     void loadRt();
   }, [gscConnected, loadGsc, loadTop, loadCjfYoy, loadRt]);
-
-  useEffect(() => {
-    if (!gscConnected || !urlsForTopOgFetch.length) return;
-    fetch("/api/fetch-titles", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls: urlsForTopOgFetch }),
-    })
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((x: { titles?: Record<string, string>; images?: Record<string, string> }) => {
-        if (x.titles) setDiscTit((p) => ({ ...p, ...x.titles }));
-        if (x.images) setPageOgImages((p) => ({ ...p, ...x.images }));
-      });
-  }, [gscConnected, urlsForTopOgFetch]);
 
   const refreshAll = useCallback(async () => {
     await Promise.all([loadGsc(true), loadTop(true), loadCjfYoy(true), loadRt()]);
