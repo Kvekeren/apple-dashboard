@@ -31,13 +31,13 @@ async function fetchImagesParallel(urls: string[]): Promise<Record<string, strin
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const urls = Array.isArray(body.urls) ? body.urls : [];
+    const rawUrls: unknown[] = Array.isArray(body.urls) ? body.urls : [];
     const forceRefresh = body.refresh === true;
 
     const trimmed = [
       ...new Set(
-        urls
-          .filter((u: unknown): u is string => typeof u === "string")
+        rawUrls
+          .filter((u): u is string => typeof u === "string")
           .map((u) => u.trim())
           .filter(Boolean)
       ),

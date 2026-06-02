@@ -111,8 +111,8 @@ export function ConversionEngagementMetricDetailPanel({
                     }
                   />
                   <Tooltip
-                    formatter={(value: number) => [
-                      formatConversionValue(value, detail.format),
+                    formatter={(value) => [
+                      formatConversionValue(Number(value ?? 0), detail.format),
                       detail.label,
                     ]}
                   />
