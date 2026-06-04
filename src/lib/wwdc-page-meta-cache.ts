@@ -1,7 +1,7 @@
 import { WWDC_CLIENT_PERIODS, readWwdcClientCache } from "@/lib/wwdc-client-cache";
 
 /** Versie — bump samen met wwdc-client-cache bij schema-wijzigingen. */
-export const WWDC_PAGE_META_CACHE_VERSION = "v8-images";
+export const WWDC_PAGE_META_CACHE_VERSION = "v9-top50";
 
 const STORAGE_KEY = `wwdc-page-meta-${WWDC_PAGE_META_CACHE_VERSION}`;
 
@@ -65,7 +65,7 @@ export function clearWwdcPageMetaCache(): void {
   }
 }
 
-/** Alle artikel-URL's uit gecachte WWDC-periodes (max ~225 unieke). */
+/** Alle artikel-URL's uit gecachte WWDC-periodes (max ~450 unieke). */
 export function collectWwdcArticleUrlsFromCache(): string[] {
   const urls = new Set<string>();
   for (const period of WWDC_CLIENT_PERIODS) {

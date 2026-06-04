@@ -2,8 +2,10 @@
 
 import { format, parseISO } from "date-fns";
 import { nl } from "date-fns/locale";
+import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { WwdcArticlesTable } from "@/components/wwdc/WwdcArticlesTable";
 import {
   prefetchWwdcPageImages,
@@ -12,6 +14,7 @@ import {
 import {
   WWDC_2025,
   WWDC_TOP_ARTICLES,
+  WWDC_TOP_ARTICLES_MAX,
   type WwdcPeriodKey,
 } from "@/config/wwdc";
 import {
@@ -53,6 +56,7 @@ export function WwdcDashboard() {
   );
   const [loading, setLoading] = useState(() => !readWwdcClientCache("weekBefore"));
   const [error, setError] = useState<string | null>(null);
+  const [showAllArticles, setShowAllArticles] = useState(false);
   const prefetchStarted = useRef(false);
 
   const fetchPeriod = useCallback(async (targetPeriod: WwdcPeriodKey, force = false) => {
@@ -129,6 +133,10 @@ export function WwdcDashboard() {
   }, [period, loadPeriod]);
 
   useEffect(() => {
+    setShowAllArticles(false);
+  }, [period, activeBrand]);
+
+  useEffect(() => {
     if (prefetchStarted.current) return;
     prefetchStarted.current = true;
     void prefetchAllPeriods(false);
@@ -163,9 +171,14 @@ export function WwdcDashboard() {
     return () => window.removeEventListener("wwdc-refresh", onRefresh);
   }, [fetchPeriod, period, prefetchAllPeriods]);
 
-  const rows = data?.byBrand[activeBrand] ?? [];
-  const urlsForMeta = rows.map((r) => r.url);
-  const pageOgImages = useWwdcPageImages(urlsForMeta, rows.length > 0);
+  const allRows = data?.byBrand[activeBrand] ?? [];
+  const articleLimit = showAllArticles ? WWDC_TOP_ARTICLES_MAX : WWDC_TOP_ARTICLES;
+  const rows = allRows.slice(0, articleLimit);
+  const hasMoreArticles =
+    !showAllArticles && allRows.length > WWDC_TOP_ARTICLES;
+  const urlsForMeta = allRows.map((r) => r.url);
+  const pageOgImages = useWwdcPageImages(urlsForMeta, allRows.length > 0);
+  const topLabel = showAllArticles ? WWDC_TOP_ARTICLES_MAX : WWDC_TOP_ARTICLES;
 
   return (
     <div className="space-y-6">
@@ -240,7 +253,7 @@ export function WwdcDashboard() {
       ) : (
         <section>
           <h2 className="fnl-section-title mb-3">
-            Meest gelezen artikelen (top {WWDC_TOP_ARTICLES})
+            Meest gelezen artikelen (top {topLabel})
             {data?.meta ? (
               <span className="ml-2 font-normal text-sm text-muted-foreground">
                 {formatPeriod(data.meta.startDate, data.meta.endDate)}
@@ -248,6 +261,19 @@ export function WwdcDashboard() {
             ) : null}
           </h2>
           <WwdcArticlesTable rows={rows} pageOgImages={pageOgImages} />
+          {hasMoreArticles ? (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-[4px] text-primary hover:bg-[var(--fnl-blue-pale)]"
+                onClick={() => setShowAllArticles(true)}
+              >
+                <ChevronDown className="size-4" />
+                Meer artikelen
+              </Button>
+            </div>
+          ) : null}
         </section>
       )}
     </div>

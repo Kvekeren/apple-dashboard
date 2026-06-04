@@ -13,7 +13,7 @@ export type WwdcDashboardPayload = {
 };
 
 /** Versie — bump bij schema-/filterwijzigingen zodat oude browser-cache vervalt. */
-const WWDC_CLIENT_CACHE_VERSION = "v8-images";
+const WWDC_CLIENT_CACHE_VERSION = "v9-top50";
 
 const STORAGE_KEY = `wwdc-dashboard-${WWDC_CLIENT_CACHE_VERSION}`;
 

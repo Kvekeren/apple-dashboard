@@ -66,8 +66,10 @@ export function getCurrentIsoWeekRange(referenceDate = new Date()): IsoWeekRange
 }
 
 /** Zelfde ISO-weeknummer in het vorige ISO-jaar (voor YoY Discover). */
-export function getSameIsoWeekLastYear(referenceDate = new Date()): IsoWeekRange {
-  const isoWeek = getISOWeek(referenceDate);
+export function getSameIsoWeekLastYearForWeek(
+  isoWeek: number,
+  referenceDate = new Date()
+): IsoWeekRange {
   const isoWeekYear = getISOWeekYear(referenceDate) - 1;
   const anchor = setISOWeek(setISOWeekYear(new Date(), isoWeekYear), isoWeek);
   const start = startOfISOWeek(anchor);
@@ -78,4 +80,9 @@ export function getSameIsoWeekLastYear(referenceDate = new Date()): IsoWeekRange
     startDate: format(start, "yyyy-MM-dd"),
     endDate: format(end, "yyyy-MM-dd"),
   };
+}
+
+/** Zelfde ISO-week als vandaag, maar in het vorige ISO-jaar. */
+export function getSameIsoWeekLastYear(referenceDate = new Date()): IsoWeekRange {
+  return getSameIsoWeekLastYearForWeek(getISOWeek(referenceDate), referenceDate);
 }

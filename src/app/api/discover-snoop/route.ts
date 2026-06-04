@@ -5,6 +5,7 @@ import {
   IDEEEN_CATEGORY_SECTIONS,
   IDEEEN_MAX,
   fetchDiscoverSnoopCategory,
+  fetchDiscoverSnoopWeeks,
   resolveLatestDiscoverWeek,
   type IdeeenApiPayload,
   type IdeeenCategoryKey,
@@ -35,12 +36,7 @@ async function loadCategoryFeeds(
   };
 }
 
-async function loadIdeeenPayload(): Promise<IdeeenApiPayload> {
-  const week = await resolveLatestDiscoverWeek();
-  if (week == null) {
-    throw new Error("Geen week beschikbaar in DiscoverSnoop");
-  }
-
+async function loadIdeeenPayload(week: number): Promise<IdeeenApiPayload> {
   const entries = await Promise.all(
     IDEEEN_CATEGORY_SECTIONS.map(async ({ key }) => {
       const feeds = await loadCategoryFeeds(key, week);
@@ -55,23 +51,53 @@ async function loadIdeeenPayload(): Promise<IdeeenApiPayload> {
   };
 }
 
+async function resolveRequestedWeek(weekParam: string | null): Promise<number | null> {
+  if (weekParam == null || weekParam === "") {
+    return resolveLatestDiscoverWeek();
+  }
+  const parsed = Number.parseInt(weekParam, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return null;
+
+  const { weeks } = await fetchDiscoverSnoopWeeks();
+  if (!weeks.includes(parsed)) return null;
+  return parsed;
+}
+
 export async function GET(request: NextRequest) {
   const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
+  const weekParam = request.nextUrl.searchParams.get("week");
 
-  let weekForCache: number | null = null;
+  let week: number | null = null;
+  try {
+    week = await resolveRequestedWeek(weekParam);
+  } catch (err) {
+    console.error("DiscoverSnoop weeks error:", err);
+    return NextResponse.json(
+      { error: "Discover-weeks ophalen mislukt" },
+      { status: 502 }
+    );
+  }
+
+  if (week == null) {
+    const invalidParam = weekParam != null && weekParam !== "";
+    return NextResponse.json(
+      {
+        error: invalidParam
+          ? "Week niet beschikbaar in DiscoverSnoop"
+          : "Geen week beschikbaar in DiscoverSnoop",
+      },
+      { status: invalidParam ? 400 : 502 }
+    );
+  }
+
   if (!forceRefresh) {
-    weekForCache = await resolveLatestDiscoverWeek();
-    if (weekForCache != null) {
-      const cached = await getCached<IdeeenApiPayload>(cacheKey(weekForCache), TTL.HOURS_2);
-      if (cached) return NextResponse.json(cached);
-    }
+    const cached = await getCached<IdeeenApiPayload>(cacheKey(week), TTL.HOURS_2);
+    if (cached) return NextResponse.json(cached);
   }
 
   try {
-    const payload = await loadIdeeenPayload();
-    if (payload.week != null) {
-      await setCached(cacheKey(payload.week), payload);
-    }
+    const payload = await loadIdeeenPayload(week);
+    await setCached(cacheKey(week), payload);
     return NextResponse.json(payload);
   } catch (err) {
     console.error("DiscoverSnoop fetch error:", err);

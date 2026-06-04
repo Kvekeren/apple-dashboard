@@ -32,6 +32,11 @@ export const TOP_ARTICLES_INITIAL = 5;
 export const TOP_ARTICLES_STEP = 5;
 export const TOP_ARTICLES_MAX = 30;
 
+/** GA4-realtime: top-URLs per site (één fetch), UI in pagina's van 8. */
+export const REALTIME_TOP_PAGES_TOTAL = 24;
+export const REALTIME_PAGE_SIZE = 8;
+export const REALTIME_PAGE_COUNT = REALTIME_TOP_PAGES_TOTAL / REALTIME_PAGE_SIZE;
+
 export type TopTenMetricFilter = "ga4" | "gsc-discover" | "gsc-web";
 
 export type WeeklyTopArticleRow = {

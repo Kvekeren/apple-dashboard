@@ -8,7 +8,9 @@ export const WWDC_2025 = {
   afterEnd: "2025-06-15",
 } as const;
 
+/** Standaard zichtbaar in de tabel; API haalt tot WWDC_TOP_ARTICLES_MAX op. */
 export const WWDC_TOP_ARTICLES = 25;
+export const WWDC_TOP_ARTICLES_MAX = 50;
 
 export type WwdcPeriodKey = "weekBefore" | "startWwdc" | "afterWwdc";
 

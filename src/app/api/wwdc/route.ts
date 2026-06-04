@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 
 import {
   WWDC_PERIOD_LABELS,
-  WWDC_TOP_ARTICLES,
+  WWDC_TOP_ARTICLES_MAX,
   type WwdcPeriodKey,
   wwdcPeriodDates,
 } from "@/config/wwdc";
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   const period = parsePeriod(request.nextUrl.searchParams.get("period"));
   const brand = parseBrand(request.nextUrl.searchParams.get("brand"));
   const { startDate, endDate } = wwdcPeriodDates(period);
-  const cacheKey = `wwdc-2025-v8-top${WWDC_TOP_ARTICLES}-${period}-${brand ?? "all"}`;
+  const cacheKey = `wwdc-2025-v9-top${WWDC_TOP_ARTICLES_MAX}-${period}-${brand ?? "all"}`;
 
   if (!forceRefresh) {
     const cached = await getWwdcCached<{
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
           id,
           startDate,
           endDate,
-          WWDC_TOP_ARTICLES
+          WWDC_TOP_ARTICLES_MAX
         ),
       })),
     ]);

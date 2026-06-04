@@ -8,6 +8,13 @@ import { ChevronDown, Pin, Search, Star, X } from "lucide-react";
 import { useMonitoringAuth } from "@/components/monitoring/monitoring-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { type IdeeenApiPayload } from "@/lib/discover-snoop";
 import {
   BOARD_INITIAL,
@@ -396,6 +403,8 @@ export function Inspiratiebord({
   const [snoop, setSnoop] = useState<IdeeenApiPayload | null>(null);
   const [snoopErr, setSnoopErr] = useState<string | null>(null);
   const [snoopLoading, setSnoopLoading] = useState(true);
+  const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
 
   const [yoy, setYoy] = useState<YoyPayload | null>(null);
   const [yoyErr, setYoyErr] = useState<string | null>(null);
@@ -416,19 +425,35 @@ export function Inspiratiebord({
     setLade(loadLade());
   }, []);
 
-  const loadSnoop = useCallback(async (refresh = false) => {
+  const loadWeeks = useCallback(async () => {
+    try {
+      const res = await fetch("/api/discover-snoop/weeks");
+      if (!res.ok) return;
+      const body = (await res.json()) as { weeks?: number[] };
+      if (Array.isArray(body.weeks)) setAvailableWeeks(body.weeks);
+    } catch {
+      /* weeks-lijst is optioneel voor de UI */
+    }
+  }, []);
+
+  const loadSnoop = useCallback(async (week?: number | null, refresh = false) => {
     setSnoopLoading(true);
     setSnoopErr(null);
     try {
-      const u = refresh ? "/api/discover-snoop?refresh=1" : "/api/discover-snoop";
-      const res = await fetch(u);
+      const params = new URLSearchParams();
+      if (refresh) params.set("refresh", "1");
+      if (week != null) params.set("week", String(week));
+      const qs = params.toString();
+      const res = await fetch(qs ? `/api/discover-snoop?${qs}` : "/api/discover-snoop");
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         setSnoop(null);
         setSnoopErr(body.error ?? "Discover-week laden mislukt");
         return;
       }
-      setSnoop((await res.json()) as IdeeenApiPayload);
+      const data = (await res.json()) as IdeeenApiPayload;
+      setSnoop(data);
+      if (data.week != null) setSelectedWeek(data.week);
     } catch {
       setSnoop(null);
       setSnoopErr("Discover-week laden mislukt");
@@ -437,12 +462,18 @@ export function Inspiratiebord({
     }
   }, []);
 
-  const loadYoy = useCallback(async (refresh = false) => {
+  const loadYoy = useCallback(async (week?: number | null, refresh = false) => {
     setYoyLoading(true);
     setYoyErr(null);
     try {
-      const u = refresh ? "/api/discover-yoy-week?refresh=1" : "/api/discover-yoy-week";
-      const res = await fetch(u, { credentials: "include" });
+      const params = new URLSearchParams();
+      if (refresh) params.set("refresh", "1");
+      if (week != null) params.set("week", String(week));
+      const qs = params.toString();
+      const res = await fetch(
+        qs ? `/api/discover-yoy-week?${qs}` : "/api/discover-yoy-week",
+        { credentials: "include" }
+      );
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         setYoy(null);
@@ -458,18 +489,41 @@ export function Inspiratiebord({
     }
   }, []);
 
+  const onDiscoverWeekChange = useCallback(
+    (value: string) => {
+      const week = Number.parseInt(value, 10);
+      if (!Number.isFinite(week)) return;
+      setSelectedWeek(week);
+      setVisible((v) => ({
+        ...v,
+        "week-nl": BOARD_INITIAL,
+        "week-ww": BOARD_INITIAL,
+        yoy: BOARD_INITIAL,
+      }));
+      void loadSnoop(week);
+    },
+    [loadSnoop]
+  );
+
   useEffect(() => {
+    void loadWeeks();
     void loadSnoop();
-  }, [loadSnoop]);
+  }, [loadWeeks, loadSnoop]);
 
   useEffect(() => {
     if (!gscConnected) return;
-    void loadYoy();
-  }, [gscConnected, loadYoy]);
+    const week = selectedWeek ?? snoop?.week;
+    if (week == null) return;
+    void loadYoy(week);
+  }, [gscConnected, selectedWeek, snoop?.week, loadYoy]);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadSnoop(true), gscConnected ? loadYoy(true) : Promise.resolve()]);
-  }, [loadSnoop, loadYoy, gscConnected]);
+    const week = selectedWeek ?? snoop?.week;
+    await Promise.all([
+      loadSnoop(selectedWeek, true),
+      gscConnected && week != null ? loadYoy(week, true) : Promise.resolve(),
+    ]);
+  }, [loadSnoop, loadYoy, gscConnected, selectedWeek, snoop?.week]);
 
   useEffect(() => {
     onRegisterRefresh?.(refreshAll);
@@ -616,14 +670,37 @@ export function Inspiratiebord({
     <div className="flex min-h-0 w-full flex-1 flex-col">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
-            Inspiratiebord
-            {snoop?.week != null ? (
-              <span className="ml-2 text-base font-normal text-muted-foreground sm:text-lg">
+          <div className="flex flex-wrap items-baseline gap-1.5 sm:gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
+              Inspiratiebord
+            </h1>
+            {availableWeeks.length > 0 && (selectedWeek ?? snoop?.week) != null ? (
+              <Select
+                value={String(selectedWeek ?? snoop?.week)}
+                onValueChange={onDiscoverWeekChange}
+                disabled={snoopLoading}
+              >
+                <SelectTrigger
+                  size="sm"
+                  className="h-7 w-auto min-w-0 gap-1 rounded-[4px] border-transparent bg-transparent px-1.5 py-0 text-sm font-normal text-muted-foreground shadow-none hover:border-border/50 hover:bg-muted/40 focus-visible:ring-1 focus-visible:ring-ring/25 [&_svg]:size-3 [&_svg]:opacity-40"
+                  aria-label="Discover-week kiezen"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableWeeks.map((w) => (
+                    <SelectItem key={w} value={String(w)}>
+                      Week {w}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : snoop?.week != null ? (
+              <span className="text-sm font-normal text-muted-foreground">
                 Week {snoop.week}
               </span>
             ) : null}
-          </h1>
+          </div>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Discover-markt deze week (NL en wereld) en eigen Discover in dezelfde week vorig jaar —
             als kolommen om ideeën te vergelijken en vast te pinnen.

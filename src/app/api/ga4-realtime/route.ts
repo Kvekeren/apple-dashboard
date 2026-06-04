@@ -5,6 +5,7 @@ import {
   fetchGA4RealtimeTopPages,
 } from "@/lib/ga4";
 import { getGoogleAccessToken } from "@/lib/google-access-token";
+import { REALTIME_TOP_PAGES_TOTAL } from "@/lib/monitoring/shared";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -20,7 +21,7 @@ export async function GET() {
   try {
     const [data, topPages] = await Promise.all([
       fetchGA4ActiveUsers(accessToken),
-      fetchGA4RealtimeTopPages(accessToken, 5),
+      fetchGA4RealtimeTopPages(accessToken, REALTIME_TOP_PAGES_TOTAL),
     ]);
     return NextResponse.json({ data, topPages });
   } catch (err) {
