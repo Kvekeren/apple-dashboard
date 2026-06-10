@@ -163,7 +163,11 @@ export function HomePage() {
         const res = await fetch(u, { credentials: "include" });
         if (!res.ok) {
           setTopPg([]);
-          setTopErr("Top-artikelen laden mislukt.");
+          setTopErr(
+            res.status === 401
+              ? "Google-sessie verlopen. Log opnieuw in via het groene icoon rechtsboven."
+              : "Top-artikelen laden mislukt."
+          );
           return;
         }
         const j = await res.json();

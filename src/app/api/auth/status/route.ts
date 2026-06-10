@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getGoogleAccessToken } from "@/lib/google-access-token";
 
 export async function GET() {
   const cookieStore = await cookies();
-  const hasToken =
-    !!cookieStore.get("gsc_access_token")?.value ||
-    !!cookieStore.get("gsc_refresh_token")?.value;
-  return NextResponse.json({ connected: hasToken });
+  const accessToken = await getGoogleAccessToken(cookieStore);
+  return NextResponse.json({ connected: Boolean(accessToken) });
 }
