@@ -6,6 +6,7 @@ import {
 import { getCached, setCached, TTL } from "@/lib/api-cache";
 import { getGoogleAccessToken } from "@/lib/google-access-token";
 import { parseDashboardRangeFromRequest } from "@/lib/dashboard-date-range";
+import { SOURCE_LABELS } from "@/lib/monitoring/shared";
 export async function GET(request: NextRequest) {
   const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
 
@@ -16,7 +17,18 @@ export async function GET(request: NextRequest) {
     const cached = await getCached<{ rows: Awaited<
       ReturnType<typeof fetchGA4TopPagesByScreenViews>
     >; meta: { startDate: string; endDate: string } }>(cacheKey, TTL.HOURS_24);
-    if (cached) return NextResponse.json(cached);
+    if (cached) {
+      const bySource = Object.fromEntries(
+        SOURCE_LABELS.map((label) => [
+          label,
+          cached.rows.filter((r) => r.source === label).length,
+        ])
+      );
+      const allSitesHaveData = SOURCE_LABELS.every((label) => (bySource[label] ?? 0) > 0);
+      if (allSitesHaveData) {
+        return NextResponse.json(cached);
+      }
+    }
   }
 
   const cookieStore = await cookies();
@@ -42,7 +54,13 @@ export async function GET(request: NextRequest) {
       rows,
     };
 
-    await setCached(cacheKey, payload);
+    const bySource = Object.fromEntries(
+      SOURCE_LABELS.map((label) => [label, rows.filter((r) => r.source === label).length])
+    );
+    const allSitesHaveData = SOURCE_LABELS.every((label) => (bySource[label] ?? 0) > 0);
+    if (allSitesHaveData) {
+      await setCached(cacheKey, payload);
+    }
 
     return NextResponse.json(payload);
   } catch (err) {

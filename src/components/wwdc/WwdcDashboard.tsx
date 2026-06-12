@@ -12,10 +12,11 @@ import {
   useWwdcPageImages,
 } from "@/components/wwdc/use-wwdc-page-images";
 import {
-  WWDC_2025,
+  getWwdcConfig,
   WWDC_TOP_ARTICLES,
   WWDC_TOP_ARTICLES_MAX,
   type WwdcPeriodKey,
+  type WwdcYear,
 } from "@/config/wwdc";
 import {
   clearWwdcClientCache,
@@ -48,41 +49,45 @@ function formatPeriod(start: string, end: string): string {
   return start === end ? endFmt : `${startFmt} – ${endFmt}`;
 }
 
-export function WwdcDashboard() {
+export function WwdcDashboard({ year }: { year: WwdcYear }) {
+  const config = getWwdcConfig(year);
   const [activeBrand, setActiveBrand] = useState<SiteTitleId>("icreate");
   const [period, setPeriod] = useState<WwdcPeriodKey>("weekBefore");
   const [data, setData] = useState<WwdcDashboardPayload | null>(() =>
-    readWwdcClientCache("weekBefore")
+    readWwdcClientCache(year, "weekBefore")
   );
-  const [loading, setLoading] = useState(() => !readWwdcClientCache("weekBefore"));
+  const [loading, setLoading] = useState(() => !readWwdcClientCache(year, "weekBefore"));
   const [error, setError] = useState<string | null>(null);
   const [showAllArticles, setShowAllArticles] = useState(false);
   const prefetchStarted = useRef(false);
 
-  const fetchPeriod = useCallback(async (targetPeriod: WwdcPeriodKey, force = false) => {
-    if (!force) {
-      const cached = readWwdcClientCache(targetPeriod);
-      if (cached) return cached;
-    }
+  const fetchPeriod = useCallback(
+    async (targetPeriod: WwdcPeriodKey, force = false) => {
+      if (!force) {
+        const cached = readWwdcClientCache(year, targetPeriod);
+        if (cached) return cached;
+      }
 
-    const qs = new URLSearchParams({ period: targetPeriod });
-    if (force) qs.set("refresh", "1");
+      const qs = new URLSearchParams({ period: targetPeriod, year: String(year) });
+      if (force) qs.set("refresh", "1");
 
-    const res = await fetch(`/api/wwdc?${qs}`, { credentials: "include" });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? "Data ophalen mislukt");
-    }
+      const res = await fetch(`/api/wwdc?${qs}`, { credentials: "include" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Data ophalen mislukt");
+      }
 
-    const payload = (await res.json()) as WwdcDashboardPayload;
-    writeWwdcClientCache(targetPeriod, payload);
-    return payload;
-  }, []);
+      const payload = (await res.json()) as WwdcDashboardPayload;
+      writeWwdcClientCache(year, targetPeriod, payload);
+      return payload;
+    },
+    [year]
+  );
 
   const loadPeriod = useCallback(
     async (targetPeriod: WwdcPeriodKey, force = false, showLoading = true) => {
       if (!force) {
-        const cached = readWwdcClientCache(targetPeriod);
+        const cached = readWwdcClientCache(year, targetPeriod);
         if (cached) {
           setData(cached);
           setError(null);
@@ -103,14 +108,14 @@ export function WwdcDashboard() {
         if (showLoading) setLoading(false);
       }
     },
-    [fetchPeriod]
+    [fetchPeriod, year]
   );
 
   const prefetchAllPeriods = useCallback(
     async (force = false) => {
       const missing = force
         ? WWDC_CLIENT_PERIODS
-        : WWDC_CLIENT_PERIODS.filter((p) => !readWwdcClientCache(p));
+        : WWDC_CLIENT_PERIODS.filter((p) => !readWwdcClientCache(year, p));
       if (!missing.length) return;
 
       await Promise.allSettled(
@@ -123,14 +128,22 @@ export function WwdcDashboard() {
         })
       );
 
-      prefetchWwdcPageImages(collectWwdcArticleUrlsFromCache(), force);
+      prefetchWwdcPageImages(collectWwdcArticleUrlsFromCache([year]), force);
     },
-    [fetchPeriod]
+    [fetchPeriod, year]
   );
 
   useEffect(() => {
-    void loadPeriod(period, false, !readWwdcClientCache(period));
-  }, [period, loadPeriod]);
+    prefetchStarted.current = false;
+    setData(readWwdcClientCache(year, period));
+    setLoading(!readWwdcClientCache(year, period));
+    setError(null);
+    setShowAllArticles(false);
+  }, [year, period]);
+
+  useEffect(() => {
+    void loadPeriod(period, false, !readWwdcClientCache(year, period));
+  }, [period, loadPeriod, year]);
 
   useEffect(() => {
     setShowAllArticles(false);
@@ -140,17 +153,20 @@ export function WwdcDashboard() {
     if (prefetchStarted.current) return;
     prefetchStarted.current = true;
     void prefetchAllPeriods(false);
-    prefetchWwdcPageImages(collectWwdcArticleUrlsFromCache());
-  }, [prefetchAllPeriods]);
+    prefetchWwdcPageImages(collectWwdcArticleUrlsFromCache([year]));
+  }, [prefetchAllPeriods, year]);
 
   useEffect(() => {
     if (!data) return;
-    prefetchWwdcPageImages(collectWwdcArticleUrlsFromCache());
-  }, [data]);
+    prefetchWwdcPageImages(collectWwdcArticleUrlsFromCache([year]));
+  }, [data, year]);
 
   useEffect(() => {
-    function onRefresh() {
-      clearWwdcClientCache();
+    function onRefresh(event: Event) {
+      const detail = (event as CustomEvent<{ year?: WwdcYear }>).detail;
+      if (detail?.year != null && detail.year !== year) return;
+
+      clearWwdcClientCache(year);
       clearWwdcPageMetaCache();
       void (async () => {
         setLoading(true);
@@ -169,7 +185,7 @@ export function WwdcDashboard() {
     }
     window.addEventListener("wwdc-refresh", onRefresh);
     return () => window.removeEventListener("wwdc-refresh", onRefresh);
-  }, [fetchPeriod, period, prefetchAllPeriods]);
+  }, [fetchPeriod, period, prefetchAllPeriods, year]);
 
   const allRows = data?.byBrand[activeBrand] ?? [];
   const articleLimit = showAllArticles ? WWDC_TOP_ARTICLES_MAX : WWDC_TOP_ARTICLES;
@@ -184,15 +200,15 @@ export function WwdcDashboard() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          WWDC {WWDC_2025.year}
+          WWDC {config.year}
         </h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Analyse van best presterende artikelen rond WWDC {WWDC_2025.year}: week vóór WWDC (
-          {format(parseISO(WWDC_2025.weekBeforeStart), "d MMMM", { locale: nl })} –{" "}
-          {format(parseISO(WWDC_2025.weekBeforeEnd), "d MMMM", { locale: nl })}), start WWDC (
-          {format(parseISO(WWDC_2025.startDate), "d MMMM yyyy", { locale: nl })}) en na WWDC (
-          {format(parseISO(WWDC_2025.afterStart), "d MMMM", { locale: nl })} –{" "}
-          {format(parseISO(WWDC_2025.afterEnd), "d MMMM yyyy", { locale: nl })}). Gesorteerd op
+          Analyse van best presterende artikelen rond WWDC {config.year}: week vóór WWDC (
+          {format(parseISO(config.weekBeforeStart), "d MMMM", { locale: nl })} –{" "}
+          {format(parseISO(config.weekBeforeEnd), "d MMMM", { locale: nl })}), start WWDC (
+          {format(parseISO(config.startDate), "d MMMM yyyy", { locale: nl })}) en na WWDC (
+          {format(parseISO(config.afterStart), "d MMMM", { locale: nl })} –{" "}
+          {format(parseISO(config.afterEnd), "d MMMM yyyy", { locale: nl })}). Gesorteerd op
           GA4-pageviews, met verkeersbron per kanaal. Discover en Google Search komen uit
           Search Console (clicks); nieuwsbrief = GA4 views per paginapad, incl.
           sessiebronnen zoals nieuwsbrief_ic, nieuwsbrief_ip en nieuwsbrief_iculture.

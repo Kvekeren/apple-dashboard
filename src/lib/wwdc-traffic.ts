@@ -395,3 +395,101 @@ export async function fetchGA4WwdcArticleTraffic(
     .sort((a, b) => b.pageviews - a.pageviews)
     .slice(0, limit);
 }
+
+export type WwdcBrandTotals = {
+  pageviews: number;
+  discover: number;
+  googleSearch: number;
+  newsletter: number;
+};
+
+export function sumGscClicksForBrand(
+  rows: { url: string; clicks: number }[],
+  brandLabel: SiteTitleLabel
+): number {
+  let total = 0;
+  for (const value of buildGscClicksByUrlForBrand(rows, brandLabel).values()) {
+    total += value;
+  }
+  return total;
+}
+
+async function fetchGa4BrandMetricTotal(
+  analyticsdata: ReturnType<typeof google.analyticsdata>,
+  propertyId: string,
+  startDate: string,
+  endDate: string,
+  dimensionFilter?: ReturnType<typeof buildNewsletterDimensionFilter>
+): Promise<number> {
+  const { data } = await analyticsdata.properties.runReport({
+    property: `properties/${propertyId}`,
+    requestBody: {
+      metrics: [{ name: "screenPageViews" }],
+      dateRanges: [{ startDate, endDate }],
+      ...(dimensionFilter ? { dimensionFilter } : {}),
+    },
+  });
+
+  return parseInt(data.rows?.[0]?.metricValues?.[0]?.value ?? "0", 10);
+}
+
+export async function fetchGA4WwdcBrandTotals(
+  accessToken: string,
+  brandId: SiteTitleId,
+  startDate: string,
+  endDate: string,
+  discoverRows: { url: string; clicks: number }[],
+  searchRows: { url: string; clicks: number }[]
+): Promise<WwdcBrandTotals> {
+  const brandLabel = getTitleById(brandId)?.label;
+  if (!brandLabel) {
+    return { pageviews: 0, discover: 0, googleSearch: 0, newsletter: 0 };
+  }
+
+  const propertyId = getTitleById(brandId)?.ga4PropertyId;
+  if (!propertyId) {
+    return {
+      pageviews: 0,
+      discover: sumGscClicksForBrand(discoverRows, brandLabel),
+      googleSearch: sumGscClicksForBrand(searchRows, brandLabel),
+      newsletter: 0,
+    };
+  }
+
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
+  const analyticsdata = google.analyticsdata({ version: "v1beta", auth });
+
+  let pageviews = 0;
+  let newsletter = 0;
+
+  try {
+    pageviews = await fetchGa4BrandMetricTotal(
+      analyticsdata,
+      propertyId,
+      startDate,
+      endDate
+    );
+  } catch (err) {
+    console.error(`GA4 WWDC brand pageviews failed for ${brandId}:`, err);
+  }
+
+  try {
+    newsletter = await fetchGa4BrandMetricTotal(
+      analyticsdata,
+      propertyId,
+      startDate,
+      endDate,
+      buildNewsletterDimensionFilter()
+    );
+  } catch (err) {
+    console.error(`GA4 WWDC brand newsletter failed for ${brandId}:`, err);
+  }
+
+  return {
+    pageviews,
+    discover: sumGscClicksForBrand(discoverRows, brandLabel),
+    googleSearch: sumGscClicksForBrand(searchRows, brandLabel),
+    newsletter,
+  };
+}

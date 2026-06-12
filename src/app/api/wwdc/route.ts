@@ -5,6 +5,8 @@ import {
   WWDC_PERIOD_LABELS,
   WWDC_TOP_ARTICLES_MAX,
   type WwdcPeriodKey,
+  type WwdcYear,
+  parseWwdcYear,
   wwdcPeriodDates,
 } from "@/config/wwdc";
 import { getWwdcCached, setWwdcCached } from "@/lib/wwdc-cache";
@@ -36,12 +38,14 @@ export async function GET(request: NextRequest) {
   const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
   const period = parsePeriod(request.nextUrl.searchParams.get("period"));
   const brand = parseBrand(request.nextUrl.searchParams.get("brand"));
-  const { startDate, endDate } = wwdcPeriodDates(period);
-  const cacheKey = `wwdc-2025-v9-top${WWDC_TOP_ARTICLES_MAX}-${period}-${brand ?? "all"}`;
+  const year: WwdcYear = parseWwdcYear(request.nextUrl.searchParams.get("year"));
+  const { startDate, endDate } = wwdcPeriodDates(period, year);
+  const cacheKey = `wwdc-${year}-v9-top${WWDC_TOP_ARTICLES_MAX}-${period}-${brand ?? "all"}`;
 
   if (!forceRefresh) {
     const cached = await getWwdcCached<{
       meta: {
+        year: WwdcYear;
         startDate: string;
         endDate: string;
         period: WwdcPeriodKey;
@@ -95,6 +99,7 @@ export async function GET(request: NextRequest) {
 
     const payload = {
       meta: {
+        year,
         startDate,
         endDate,
         period,

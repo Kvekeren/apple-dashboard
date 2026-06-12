@@ -1,7 +1,8 @@
+import type { WwdcYear } from "@/config/wwdc";
 import { WWDC_CLIENT_PERIODS, readWwdcClientCache } from "@/lib/wwdc-client-cache";
 
 /** Versie — bump samen met wwdc-client-cache bij schema-wijzigingen. */
-export const WWDC_PAGE_META_CACHE_VERSION = "v9-top50";
+export const WWDC_PAGE_META_CACHE_VERSION = "v10-multi-year";
 
 const STORAGE_KEY = `wwdc-page-meta-${WWDC_PAGE_META_CACHE_VERSION}`;
 
@@ -65,14 +66,16 @@ export function clearWwdcPageMetaCache(): void {
   }
 }
 
-/** Alle artikel-URL's uit gecachte WWDC-periodes (max ~450 unieke). */
-export function collectWwdcArticleUrlsFromCache(): string[] {
+/** Alle artikel-URL's uit gecachte WWDC-periodes (max ~450 unieke per jaar). */
+export function collectWwdcArticleUrlsFromCache(years: WwdcYear[] = [2025, 2026]): string[] {
   const urls = new Set<string>();
-  for (const period of WWDC_CLIENT_PERIODS) {
-    const payload = readWwdcClientCache(period);
-    if (!payload) continue;
-    for (const rows of Object.values(payload.byBrand)) {
-      for (const row of rows) urls.add(row.url);
+  for (const year of years) {
+    for (const period of WWDC_CLIENT_PERIODS) {
+      const payload = readWwdcClientCache(year, period);
+      if (!payload) continue;
+      for (const rows of Object.values(payload.byBrand)) {
+        for (const row of rows) urls.add(row.url);
+      }
     }
   }
   return [...urls];

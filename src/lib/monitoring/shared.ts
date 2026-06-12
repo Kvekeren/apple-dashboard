@@ -25,7 +25,8 @@ export const MONITORING_NAV: {
   { href: "/ideeen", label: "Ideeën" },
   { href: "/jaarcijfers", label: "Jaarcijfers", requiresAuth: true },
   { href: "/conversie", label: "Conversies", requiresAuth: true },
-  { href: "/wwdc", label: "WWDC", requiresAuth: true },
+  { href: "/wwdc", label: "WWDC 2025", requiresAuth: true },
+  { href: "/wwdc-2026", label: "WWDC 2026", requiresAuth: true },
 ];
 
 export const TOP_ARTICLES_INITIAL = 5;
@@ -33,7 +34,7 @@ export const TOP_ARTICLES_STEP = 5;
 export const TOP_ARTICLES_MAX = 30;
 
 /** GA4-realtime: top-URLs per site (één fetch), UI in pagina's van 8. */
-export const REALTIME_TOP_PAGES_TOTAL = 24;
+export const REALTIME_TOP_PAGES_TOTAL = 48;
 export const REALTIME_PAGE_SIZE = 8;
 export const REALTIME_PAGE_COUNT = REALTIME_TOP_PAGES_TOTAL / REALTIME_PAGE_SIZE;
 
@@ -151,6 +152,7 @@ export function sourceFromArticleUrl(url: string): string {
 export function realtimeUrlLabel(url: string): string {
   try {
     const u = new URL(url);
+    if (u.pathname === "/" || u.pathname === "") return "Homepagina";
     return u.pathname + u.search;
   } catch {
     return url;

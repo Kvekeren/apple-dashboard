@@ -1,9 +1,10 @@
-import type { WwdcPeriodKey } from "@/config/wwdc";
+import type { WwdcPeriodKey, WwdcYear } from "@/config/wwdc";
 import type { SiteTitleId } from "@/lib/site-titles";
 import type { WwdcArticleTrafficRow } from "@/lib/wwdc-traffic";
 
 export type WwdcDashboardPayload = {
   meta: {
+    year: WwdcYear;
     startDate: string;
     endDate: string;
     period: WwdcPeriodKey;
@@ -13,16 +14,18 @@ export type WwdcDashboardPayload = {
 };
 
 /** Versie — bump bij schema-/filterwijzigingen zodat oude browser-cache vervalt. */
-const WWDC_CLIENT_CACHE_VERSION = "v9-top50";
+const WWDC_CLIENT_CACHE_VERSION = "v10-multi-year";
 
-const STORAGE_KEY = `wwdc-dashboard-${WWDC_CLIENT_CACHE_VERSION}`;
+function storageKey(year: WwdcYear): string {
+  return `wwdc-dashboard-${WWDC_CLIENT_CACHE_VERSION}-${year}`;
+}
 
 type StoredShape = Partial<Record<WwdcPeriodKey, WwdcDashboardPayload>>;
 
-function readStore(): StoredShape {
+function readStore(year: WwdcYear): StoredShape {
   if (typeof window === "undefined") return {};
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(year));
     if (!raw) return {};
     return JSON.parse(raw) as StoredShape;
   } catch {
@@ -30,27 +33,34 @@ function readStore(): StoredShape {
   }
 }
 
-function writeStore(store: StoredShape): void {
+function writeStore(year: WwdcYear, store: StoredShape): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    localStorage.setItem(storageKey(year), JSON.stringify(store));
   } catch {
     // ignore quota / private mode
   }
 }
 
-export function readWwdcClientCache(period: WwdcPeriodKey): WwdcDashboardPayload | null {
-  return readStore()[period] ?? null;
+export function readWwdcClientCache(
+  year: WwdcYear,
+  period: WwdcPeriodKey
+): WwdcDashboardPayload | null {
+  return readStore(year)[period] ?? null;
 }
 
-export function writeWwdcClientCache(period: WwdcPeriodKey, payload: WwdcDashboardPayload): void {
-  const store = readStore();
+export function writeWwdcClientCache(
+  year: WwdcYear,
+  period: WwdcPeriodKey,
+  payload: WwdcDashboardPayload
+): void {
+  const store = readStore(year);
   store[period] = payload;
-  writeStore(store);
+  writeStore(year, store);
 }
 
-export function clearWwdcClientCache(): void {
+export function clearWwdcClientCache(year: WwdcYear): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKey(year));
   } catch {
     // ignore
   }
@@ -58,7 +68,7 @@ export function clearWwdcClientCache(): void {
 
 export const WWDC_CLIENT_PERIODS: WwdcPeriodKey[] = ["weekBefore", "startWwdc", "afterWwdc"];
 
-export function wwdcClientCacheComplete(): boolean {
-  const store = readStore();
+export function wwdcClientCacheComplete(year: WwdcYear): boolean {
+  const store = readStore(year);
   return WWDC_CLIENT_PERIODS.every((p) => Boolean(store[p]));
 }

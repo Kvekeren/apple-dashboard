@@ -11,14 +11,14 @@ export function WwdcPage() {
   const { gscConnected } = useMonitoringAuth();
 
   const refreshPage = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("wwdc-refresh"));
+    window.dispatchEvent(new CustomEvent("wwdc-refresh", { detail: { year: 2025 } }));
   }, []);
 
   useRegisterPageRefresh(gscConnected ? refreshPage : null, gscConnected);
 
   return (
     <MonitoringAuthGate>
-      <WwdcDashboard />
+      <WwdcDashboard year={2025} />
     </MonitoringAuthGate>
   );
 }
