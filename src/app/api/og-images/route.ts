@@ -12,12 +12,12 @@ function store(map: Record<string, string>, url: string, imageUrl: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const urls = Array.isArray(body.urls) ? body.urls : [];
+    const body = (await request.json()) as { urls?: unknown };
+    const urls: unknown[] = Array.isArray(body.urls) ? body.urls : [];
     const trimmed = urls
-      .filter((u: unknown): u is string => typeof u === "string")
-      .map((u: string) => u.trim())
-      .filter(Boolean)
+      .filter((u): u is string => typeof u === "string")
+      .map((u) => u.trim())
+      .filter((u): u is string => u.length > 0)
       .slice(0, MAX_URLS);
 
     if (!trimmed.length) return NextResponse.json({ images: {} });

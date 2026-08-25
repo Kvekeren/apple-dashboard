@@ -50,19 +50,30 @@
       font-variant-numeric: tabular-nums;
     }
     .day-lab {
+      display: block;
+      width: 100%;
+      appearance: none;
       background: #fff;
       border: 1px solid var(--border);
       border-radius: var(--r-sm);
       padding: 8px;
+      font: inherit;
       font-size: 11px;
       font-weight: 650;
       color: var(--ink-2);
+      text-align: left;
+      cursor: pointer;
+    }
+    .day-lab:hover {
+      border-color: var(--blue);
+      background: var(--blue-pale);
     }
     .day-lab .num { display: block; font-size: 18px; color: var(--blue); letter-spacing: -0.03em; }
     .day-lab.today {
       border-color: var(--blue);
       box-shadow: 0 0 0 1px var(--blue);
     }
+    .day-lab.today:hover { background: color-mix(in srgb, var(--blue-pale) 70%, #fff); }
     .today-chip {
       display: inline-block;
       margin-top: 5px;
@@ -88,6 +99,35 @@
     .cell.empty { background: var(--paper-1); }
     .cell.today { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); }
     .lanes.month .cell { min-height: 52px; gap: 6px; }
+    .add-card-btn {
+      width: 100%;
+      margin-top: auto;
+      appearance: none;
+      border: 1px dashed var(--border);
+      background: transparent;
+      color: var(--ink-3);
+      font-size: 11px;
+      font-weight: 650;
+      padding: 6px 4px;
+      border-radius: var(--r-sm);
+    }
+    .add-card-btn:hover {
+      color: var(--blue);
+      border-color: var(--blue);
+      background: var(--blue-pale);
+    }
+    .cell.empty .add-card-btn {
+      flex: 1;
+      min-height: 36px;
+    }
+    .cell:not(.empty) .add-card-btn {
+      opacity: 0;
+    }
+    .cell:not(.empty):hover .add-card-btn,
+    .cell:not(.empty):focus-within .add-card-btn {
+      opacity: 1;
+    }
+    .lanes.month .add-card-btn { font-size: 12px; padding: 4px; }
     .boot {
       min-height: 100vh;
       display: flex;
@@ -120,10 +160,6 @@
           const max = ctx.view === "month" ? 3 : 6;
           const variant = ctx.view === "month" ? "lane-chip" : "lane";
           const counts = Object.fromEntries(titleCols.map((t) => [t.id, visibleForHeads.filter((a) => a.titleId === t.id).length]));
-          if (!ctx.visible.length) {
-            board.innerHTML = `<div class="empty-state">Geen artikelen voor deze filters.</div>`;
-            return;
-          }
           let html = `<div class="lanes ${ctx.view}" style="grid-template-columns: 92px repeat(${titleCols.length}, minmax(0, 1fr))">
             <div class="lane-corner"></div>
             ${titleCols.map((t) => `<div class="col-head">${D.titleHead(t)}<span class="n">${counts[t.id]}</span></div>`).join("")}
@@ -131,10 +167,12 @@
           for (const day of dayList) {
             const iso = D.toIso(day);
             const today = iso === D.toIso(D.TODAY);
-            html += `<div class="day-lab${today ? " today" : ""}"><span class="num">${day.getDate()}</span>${D.formatDayShort(day)}${today ? '<span class="today-chip">Vandaag</span>' : ""}</div>`;
+            const dayLabel = D.formatDayLong(day);
+            html += `<button type="button" class="day-lab${today ? " today" : ""}" data-add-date="${iso}" aria-label="Nieuwe kaart op ${dayLabel}"><span class="num">${day.getDate()}</span>${D.formatDayShort(day)}${today ? '<span class="today-chip">Vandaag</span>' : ""}</button>`;
             for (const t of titleCols) {
               const arts = D.articlesOn(iso, t.id, ctx.visible);
-              html += `<div class="cell${arts.length ? "" : " empty"}${today ? " today" : ""}">${D.renderStack(arts, { key: iso + ":" + t.id, max, expanded, variant })}</div>`;
+              const addLabel = ctx.view === "month" ? "+" : arts.length ? "+ Kaart" : "+ Nieuwe kaart";
+              html += `<div class="cell${arts.length ? "" : " empty"}${today ? " today" : ""}">${D.renderStack(arts, { key: iso + ":" + t.id, max, expanded, variant })}<button type="button" class="add-card-btn" data-add-date="${iso}" data-add-title="${t.id}" aria-label="Nieuwe kaart op ${dayLabel} voor ${t.label}">${addLabel}</button></div>`;
             }
           }
           html += `</div>`;

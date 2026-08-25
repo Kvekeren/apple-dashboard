@@ -297,6 +297,7 @@
       if (c.view === "list") renderList(c);
       else opts.render(board, c);
       bindCards(board);
+      bindAdd(board);
       if (typeof opts.afterRender === "function") opts.afterRender(board, c);
       syncUrl();
       if (state.selectedId) openCard(state.selectedId, { skipRender: true });
@@ -307,6 +308,19 @@
         node.addEventListener("click", (e) => {
           e.preventDefault();
           openCard(node.getAttribute("data-id"));
+        });
+      });
+    }
+
+    function bindAdd(scope) {
+      scope.querySelectorAll("[data-add-date]").forEach((node) => {
+        node.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openNewCard({
+            date: node.getAttribute("data-add-date"),
+            titleId: node.getAttribute("data-add-title") || "",
+          });
         });
       });
     }
@@ -506,10 +520,14 @@
         .slice(0, 40);
     }
 
-    function openNewCard() {
+    function openNewCard(preset) {
+      closePanel();
       overlay.classList.add("show");
       modal.classList.add("show");
-      const firstTypes = data.TYPES.icreate;
+      const presetTitleId =
+        preset?.titleId && data.titleById(preset.titleId) ? preset.titleId : data.TITLES[0].id;
+      const presetDate = preset?.date || data.tomorrowIso();
+      const firstTypes = data.TYPES[presetTitleId] || data.TYPES.icreate;
       modal.innerHTML = `
         <h2>Nieuwe kaart</h2>
         <p class="hint">Plan een nieuw bericht of een herplaatsing. Kaarten blijven in deze browser bewaard.</p>
@@ -520,7 +538,10 @@
         <div class="field">
           <label>Titel</label>
           <select name="new-brand">
-            ${data.TITLES.map((t) => `<option value="${t.id}">${t.label}</option>`).join("")}
+            ${data.TITLES.map(
+              (t) =>
+                `<option value="${t.id}"${t.id === presetTitleId ? " selected" : ""}>${t.label}</option>`
+            ).join("")}
           </select>
         </div>
         <div class="field">
@@ -531,7 +552,7 @@
         </div>
         <div class="field">
           <label>Datum</label>
-          <input type="date" name="new-date" value="${data.tomorrowIso()}" />
+          <input type="date" name="new-date" value="${presetDate}" />
         </div>
         <div class="field">
           <label>Herplaatsing van (optioneel)</label>
@@ -585,6 +606,7 @@
         render();
         openCard(card.id);
       });
+      modal.querySelector("[name=new-title]")?.focus();
     }
 
     function closeModal() {
@@ -760,7 +782,7 @@
     });
 
     render();
-    const api = { render, state, openCard, toast };
+    const api = { render, state, openCard, openNewCard, toast };
     global.AgendaChrome.current = api;
     return api;
   }
