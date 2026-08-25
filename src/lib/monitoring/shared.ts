@@ -25,8 +25,7 @@ export const MONITORING_NAV: {
   { href: "/ideeen", label: "Ideeën" },
   { href: "/jaarcijfers", label: "Jaarcijfers", requiresAuth: true },
   { href: "/conversie", label: "Conversies", requiresAuth: true },
-  { href: "/wwdc", label: "WWDC 2025", requiresAuth: true },
-  { href: "/wwdc-2026", label: "WWDC 2026", requiresAuth: true },
+  { href: "/keynote", label: "Keynote", requiresAuth: true },
 ];
 
 export const TOP_ARTICLES_INITIAL = 5;

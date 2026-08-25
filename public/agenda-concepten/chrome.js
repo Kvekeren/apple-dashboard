@@ -54,16 +54,21 @@
       sort: parseSort(params.get("sort")),
     };
 
-    document.body.innerHTML = "";
-    document.body.removeAttribute("class");
-    document.documentElement.classList.remove("agenda-shell");
+    const mountTarget = opts.root || document.body;
+
+    if (!opts.root) {
+      document.body.innerHTML = "";
+      document.body.removeAttribute("class");
+      document.documentElement.classList.remove("agenda-shell");
+    } else {
+      mountTarget.innerHTML = "";
+    }
 
     const root = el(`<div class="page"></div>`);
     root.innerHTML = `
       <header class="topbar">
         <div class="topbar-row">
           <div>
-            <a class="back" href="/">← Dashboard</a>
             <h1>Agenda</h1>
           </div>
           <div class="toolbar">
@@ -111,7 +116,7 @@
       <div class="modal" data-modal></div>
       <div class="toast" data-toast></div>
     `;
-    document.body.appendChild(root);
+    mountTarget.appendChild(root);
 
     const board = root.querySelector("[data-board]");
     const periodEl = root.querySelector("[data-period]");

@@ -13,10 +13,6 @@ const nextConfig = {
   },
   async rewrites() {
     return {
-      beforeFiles: [
-        { source: "/agenda", destination: "/agenda-concepten/01-zwembanen.html" },
-        { source: "/agenda/", destination: "/agenda-concepten/01-zwembanen.html" },
-      ],
       afterFiles: [
         { source: "/agenda-concepten/", destination: "/agenda-concepten/01-zwembanen.html" },
         { source: "/agenda-styling", destination: "/agenda-styling/index.html" },
