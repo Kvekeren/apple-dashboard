@@ -11,6 +11,19 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: "/agenda", destination: "/agenda-concepten/01-zwembanen.html" },
+        { source: "/agenda/", destination: "/agenda-concepten/01-zwembanen.html" },
+      ],
+      afterFiles: [
+        { source: "/agenda-concepten/", destination: "/agenda-concepten/01-zwembanen.html" },
+        { source: "/agenda-styling", destination: "/agenda-styling/index.html" },
+        { source: "/agenda-styling/", destination: "/agenda-styling/index.html" },
+      ],
+    };
+  },
   // Cache-bestanden in data/ niet laten mee-triggeren voor dev-rebuilds
   webpack: (config, { dev }) => {
     if (dev) {

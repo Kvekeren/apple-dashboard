@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agenda — concept 5 · Heatmap + weekdetail</title>
+  <link rel="stylesheet" href="./tokens.css" />
+  <style>
+    .heat {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px 14px;
+      margin-bottom: 16px;
+    }
+    .heat h3 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--blue);
+    }
+    .heat-row {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .heat-lab {
+      font-size: 12px;
+      font-weight: 650;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cells {
+      display: grid;
+      grid-template-columns: repeat(28, minmax(0, 1fr));
+      gap: 3px;
+    }
+    .hcell {
+      aspect-ratio: 1;
+      border-radius: 3px;
+      border: 0;
+      min-height: 16px;
+      padding: 0;
+    }
+    .hcell:hover { outline: 2px solid var(--blue); outline-offset: 1px; }
+    .hcell.on { outline: 2px solid var(--ink); outline-offset: 1px; }
+    .week-ticks {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .week-ticks .ticks {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      font-size: 11px;
+      color: var(--ink-3);
+      font-weight: 600;
+    }
+    .wkbtn {
+      border: 1px solid var(--border);
+      background: var(--paper-1);
+      border-radius: var(--r-sm);
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 650;
+      color: var(--ink-2);
+      text-align: left;
+    }
+    .wkbtn.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .metric-seg { display: inline-flex; gap: 4px; margin-left: 8px; }
+    .metric-seg button {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      color: var(--ink-2);
+    }
+    .metric-seg button.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+    .lanes {
+      display: grid;
+      grid-template-columns: 92px repeat(3, minmax(0, 1fr));
+      gap: 6px 8px;
+    }
+    .col-head {
+      background: var(--paper-1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .day-lab {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .day-lab .num { display: block; font-size: 18px; color: var(--blue); }
+    .cell {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-height: 64px;
+    }
+    .cell.empty { background: var(--paper-1); }
+    .detail-h {
+      margin: 0 0 10px;
+      font-size: 15px;
+      color: var(--blue);
+    }
+  </style>
+</head>
+<body>
+  <script src="./data.js"></script>
+  <script src="./chrome.js"></script>
+  <script>
+    const D = AgendaData;
+    const expanded = new Set();
+    let heatMetric = "count";
+    let selectedWeekStart = D.toIso(D.DEFAULT_WEEK_START);
+
+    function heatColor(t, value, max) {
+      const colors = {
+        icreate: [240, 244, 248, 0, 64, 119],
+        iphoned: [255, 244, 236, 249, 125, 35],
+        iculture: [238, 242, 246, 92, 122, 148],
+      };
+      const c = colors[t];
+      const p = max ? Math.min(1, value / max) : 0;
+      if (p === 0) return "var(--paper-2)";
+      const r = Math.round(c[0] + (c[3] - c[0]) * p);
+      const g = Math.round(c[1] + (c[4] - c[1]) * p);
+      const b = Math.round(c[2] + (c[5] - c[2]) * p);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function cellValue(arts) {
+      if (heatMetric === "pv") return arts.reduce((s, a) => s + a.pageviews, 0);
+      if (heatMetric === "gsc") return arts.reduce((s, a) => s + a.gscClicks, 0);
+      return arts.length;
+    }
+
+    AgendaChrome.mount({
+      name: "Heatmap + weekdetail",
+      blurb: "Vier weken volume of cijfers per titel, met daaronder de gekozen week in drie kolommen.",
+      monthMode: "fourweeks",
+      render(board, ctx) {
+        const four = D.fourWeekGrid(ctx.view === "week" ? ctx.rangeStart : D.startOfWeek(ctx.rangeEnd));
+        const flat = four.weeks.flat();
+        const maxByTitle = {};
+        for (const t of D.TITLES) {
+          maxByTitle[t.id] = Math.max(
+            1,
+            ...flat.map((day) => cellValue(D.articlesOn(D.toIso(day), t.id)))
+          );
+        }
+
+        const ticks = four.weeks.map((w, i) => {
+          const iso = D.toIso(w[0]);
+          const on = iso === selectedWeekStart ? " on" : "";
+          return `<button type="button" class="wkbtn${on}" data-week="${iso}">Week ${i + 1} · ${D.formatPeriodWeek(w[0])}</button>`;
+        }).join("");
+
+        const heatRows = D.TITLES.map((t) => {
+          const cells = flat.map((day) => {
+            const iso = D.toIso(day);
+            const arts = D.articlesOn(iso, t.id);
+            const v = cellValue(arts);
+            const weekIso = D.toIso(D.startOfWeek(day));
+            const title = `${t.label} ${iso}: ${heatMetric === "count" ? v + " berichten" : D.fmtK(v)}`;
+            return `<button type="button" class="hcell${weekIso === selectedWeekStart ? " on" : ""}" data-week="${weekIso}" style="background:${heatColor(t.id, v, maxByTitle[t.id])}" title="${title}"></button>`;
+          }).join("");
+          return `<div class="heat-row"><div class="heat-lab"><i class="title-dot ${t.id}"></i>${t.label}</div><div class="cells">${cells}</div></div>`;
+        }).join("");
+
+        const weekStart = D.parseIso(selectedWeekStart);
+        const weekDays = D.daysInRange(weekStart, D.addDays(weekStart, 6));
+        const maxCards = ctx.view === "month" ? 2 : 5;
+        const counts = Object.fromEntries(D.TITLES.map((t) => [t.id, D.articlesInRange(D.toIso(weekDays[0]), D.toIso(weekDays[6])).filter((a) => a.titleId === t.id).length]));
+
+        let lanes = `<h3 class="detail-h">Weekdetail · ${D.formatPeriodWeek(weekStart)}</h3>
+          <div class="lanes"><div></div>${D.TITLES.map((t) => `<div class="col-head"><i class="title-dot ${t.id}"></i>${t.label}<span style="margin-left:auto;color:var(--ink-3);font-weight:500">${counts[t.id]}</span></div>`).join("")}`;
+        for (const day of weekDays) {
+          const iso = D.toIso(day);
+          lanes += `<div class="day-lab"><span class="num">${day.getDate()}</span>${D.formatDayShort(day)}</div>`;
+          for (const t of D.TITLES) {
+            const arts = D.articlesOn(iso, t.id);
+            lanes += `<div class="cell${arts.length ? "" : " empty"}">${D.renderStack(arts, { key: iso + ":" + t.id, max: maxCards, expanded })}</div>`;
+          }
+        }
+        lanes += `</div>`;
+
+        const metricLabel = { count: "Aantal berichten", pv: "GA4 pageviews", gsc: "GSC-clicks" };
+
+        board.innerHTML = `
+          <div class="heat">
+            <h3>Vier weken per titel
+              <span class="metric-seg">
+                <button type="button" data-metric="count" class="${heatMetric === "count" ? "on" : ""}">Volume</button>
+                <button type="button" data-metric="pv" class="${heatMetric === "pv" ? "on" : ""}">GA4</button>
+                <button type="button" data-metric="gsc" class="${heatMetric === "gsc" ? "on" : ""}">GSC</button>
+              </span>
+            </h3>
+            ${heatRows}
+            <div class="week-ticks"><div></div><div class="ticks">${ticks}</div></div>
+            <p style="margin:10px 0 0;font-size:12px;color:var(--ink-3)">Kleur = ${metricLabel[heatMetric]}. Klik een week om het detail eronder te zien.</p>
+          </div>
+          ${ctx.view === "month" ? `<p style="font-size:12px;color:var(--ink-3);margin:0 0 10px">Maandweergave toont compacte chips. Schakel naar week voor volle kaarten.</p>` : ""}
+          ${lanes}
+        `;
+
+        board.querySelectorAll("[data-week]").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            selectedWeekStart = btn.getAttribute("data-week");
+            AgendaChrome.current.render();
+          });
+        });
+        board.querySelectorAll("[data-metric]").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            heatMetric = btn.getAttribute("data-metric");
+            AgendaChrome.current.render();
+          });
+        });
+        D.bindMore(board, expanded);
+      },
+    });
+  </script>
+</body>
+</html>

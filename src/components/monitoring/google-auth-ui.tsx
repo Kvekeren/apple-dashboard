@@ -9,7 +9,7 @@ import { redirectToGoogleLogin } from "@/lib/monitoring/shared";
 
 export const GOOGLE_LOGIN_PROMPT_TITLE = "Niet ingelogd bij Google";
 export const GOOGLE_LOGIN_PROMPT_DESCRIPTION =
-  "Log in voor GA4-realtime, topartikelen, Google Search Console en jaarcijfers. Het tabblad Recent werkt ook zonder login.";
+  "Log in voor GA4-realtime, topartikelen, Google Search Console en jaarcijfers. Agenda en Ideeën werken ook zonder login.";
 export const GOOGLE_LOGIN_DISMISS_KEY = "fnl-monitoring-google-login-dismissed";
 
 function GoogleAuthDialog({

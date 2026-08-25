@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agenda — concept 4 · Redactie-weekboard</title>
+  <link rel="stylesheet" href="./tokens.css" />
+  <style>
+    .board7 {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(180px, 1fr));
+      gap: 10px;
+      min-width: 0;
+    }
+    .col {
+      background: var(--paper-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      min-height: 280px;
+      display: flex;
+      flex-direction: column;
+    }
+    .col.today { outline: 2px solid var(--blue); }
+    .col-h {
+      padding: 10px 10px 8px;
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--blue);
+      display: flex;
+      justify-content: space-between;
+    }
+    .col-h .n { color: var(--ink-3); font-weight: 500; }
+    .groups { padding: 0 8px 10px; display: flex; flex-direction: column; gap: 10px; }
+    .group {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .group-h {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .month-weeks { display: flex; flex-direction: column; gap: 22px; }
+    .mini-label {
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--ink-3);
+      margin: 0 0 8px;
+    }
+    .board-wrap { overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <script src="./data.js"></script>
+  <script src="./chrome.js"></script>
+  <script>
+    const D = AgendaData;
+    const expanded = new Set();
+
+    function weekBoard(days, max) {
+      return `<div class="board7">${days.map((day) => {
+        const iso = D.toIso(day);
+        const today = iso === D.toIso(D.TODAY);
+        const all = D.articlesOn(iso);
+        return `<div class="col${today ? " today" : ""}">
+          <div class="col-h">${D.formatDayLong(day)}<span class="n">${all.length}</span></div>
+          <div class="groups">${D.TITLES.map((t) => {
+            const arts = D.articlesOn(iso, t.id);
+            if (!arts.length) return "";
+            return `<div class="group">
+              <div class="group-h"><i class="title-dot ${t.id}"></i>${t.label} · ${arts.length}</div>
+              ${D.renderStack(arts, { key: iso + ":" + t.id + ":" + max, max, expanded })}
+            </div>`;
+          }).join("")}</div>
+        </div>`;
+      }).join("")}</div>`;
+    }
+
+    AgendaChrome.mount({
+      name: "Redactie-weekboard",
+      blurb: "Maandag tot zondag als kolommen. Per dag de drie titels als blokken onder elkaar.",
+      monthMode: "fourweeks",
+      render(board, ctx) {
+        if (ctx.view === "week") {
+          board.innerHTML = weekBoard(ctx.days, 4);
+        } else {
+          board.innerHTML = `<div class="month-weeks">${ctx.monthWeeks.map((week, i) =>
+            `<div><h3 class="mini-label">Week ${i + 1} · ${D.formatPeriodWeek(week[0])}</h3>${weekBoard(week, 1)}</div>`
+          ).join("")}</div>`;
+        }
+        D.bindMore(board, expanded);
+      },
+    });
+  </script>
+</body>
+</html>

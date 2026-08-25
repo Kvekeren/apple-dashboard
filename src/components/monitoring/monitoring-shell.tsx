@@ -99,7 +99,7 @@ function MonitoringShellInner({ children }: { children: ReactNode }) {
       await fetch("/api/auth/disconnect", { method: "POST", credentials: "include" });
       setGscConnected(false);
       clearLoginPromptDismiss();
-      if (pathname !== "/" && pathname !== "/recent" && pathname !== "/ideeen")
+      if (pathname !== "/" && pathname !== "/ideeen" && pathname !== "/agenda")
         router.push("/");
     } catch {
       /* ignore */

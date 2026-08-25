@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agenda</title>
+  <link rel="stylesheet" href="/agenda-concepten/tokens.css" />
+  <style>
+    .lanes {
+      display: grid;
+      grid-template-columns: 92px repeat(3, minmax(0, 1fr));
+      gap: 8px 10px;
+      align-items: stretch;
+      background: var(--paper-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .lane-corner,
+    .col-head {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      align-self: start;
+    }
+    .lane-corner {
+      background: var(--paper-1);
+    }
+    .col-head {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 12px -8px rgba(0, 30, 59, 0.18);
+    }
+    .col-head .title-logo {
+      width: 20px;
+      height: 20px;
+    }
+    .col-head .n {
+      margin-left: auto;
+      font-weight: 500;
+      color: var(--ink-3);
+      font-variant-numeric: tabular-nums;
+    }
+    .day-lab {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 650;
+      color: var(--ink-2);
+    }
+    .day-lab .num { display: block; font-size: 18px; color: var(--blue); letter-spacing: -0.03em; }
+    .day-lab.today {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 1px var(--blue);
+    }
+    .today-chip {
+      display: inline-block;
+      margin-top: 5px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff;
+      background: var(--blue);
+      padding: 2px 6px;
+      border-radius: 999px;
+    }
+    .cell {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-height: 48px;
+    }
+    .cell.empty { background: var(--paper-1); }
+    .cell.today { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); }
+    .lanes.month .cell { min-height: 52px; gap: 6px; }
+    .boot {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-3);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="boot">Artikelen laden…</div>
+  <script src="/agenda-concepten/data.js"></script>
+  <script src="/agenda-concepten/chrome.js"></script>
+  <script>
+    const D = AgendaData;
+    const expanded = new Set();
+
+    function mount() {
+      AgendaChrome.mount({
+        render(board, ctx) {
+          const dayList =
+            ctx.view === "month"
+              ? ctx.days.filter((d) => d.getMonth() === ctx.cursorMonth)
+              : ctx.days.filter((d) => (d.getDay() + 6) % 7 < 5);
+          const visibleForHeads = ctx.view === "month"
+            ? ctx.visible.filter((a) => D.parseIso(a.date).getMonth() === ctx.cursorMonth)
+            : ctx.visible;
+          const titleCols = D.TITLES.filter((t) => !ctx.titles?.length || ctx.titles.includes(t.id));
+          const max = ctx.view === "month" ? 3 : 6;
+          const variant = ctx.view === "month" ? "lane-chip" : "lane";
+          const counts = Object.fromEntries(titleCols.map((t) => [t.id, visibleForHeads.filter((a) => a.titleId === t.id).length]));
+          if (!ctx.visible.length) {
+            board.innerHTML = `<div class="empty-state">Geen artikelen voor deze filters.</div>`;
+            return;
+          }
+          let html = `<div class="lanes ${ctx.view}" style="grid-template-columns: 92px repeat(${titleCols.length}, minmax(0, 1fr))">
+            <div class="lane-corner"></div>
+            ${titleCols.map((t) => `<div class="col-head">${D.titleHead(t)}<span class="n">${counts[t.id]}</span></div>`).join("")}
+          `;
+          for (const day of dayList) {
+            const iso = D.toIso(day);
+            const today = iso === D.toIso(D.TODAY);
+            html += `<div class="day-lab${today ? " today" : ""}"><span class="num">${day.getDate()}</span>${D.formatDayShort(day)}${today ? '<span class="today-chip">Vandaag</span>' : ""}</div>`;
+            for (const t of titleCols) {
+              const arts = D.articlesOn(iso, t.id, ctx.visible);
+              html += `<div class="cell${arts.length ? "" : " empty"}${today ? " today" : ""}">${D.renderStack(arts, { key: iso + ":" + t.id, max, expanded, variant })}</div>`;
+            }
+          }
+          html += `</div>`;
+          board.innerHTML = html;
+          D.bindMore(board, expanded);
+        },
+        afterRender(board) {
+          const urls = [...board.querySelectorAll("[data-og-url]")]
+            .map((el) => el.getAttribute("data-og-url"))
+            .filter(Boolean);
+          void D.hydrateOgImages(urls, (map) => {
+            D.applyImageMap(board, map);
+            D.applyImageMap(document.querySelector("[data-panel]"), map);
+          });
+        },
+      });
+    }
+
+    async function loadMetrics() {
+      try {
+        const res = await fetch("/api/agenda-metrics?days=28", { credentials: "include" });
+        const json = res.ok ? await res.json() : { connected: false, byUrl: {} };
+        D.applyMetrics(json.byUrl || {}, json.connected);
+      } catch {
+        D.applyMetrics({}, false);
+      }
+      AgendaChrome.current?.render();
+    }
+
+    fetch("/api/agenda-feed")
+      .then((r) => (r.ok ? r.json() : { articles: [] }))
+      .then((data) => {
+        D.ingestLive(data.articles || []);
+        mount();
+        void loadMetrics();
+      })
+      .catch(() => {
+        D.ingestLive([]);
+        mount();
+        void loadMetrics();
+      });
+  </script>
+</body>
+</html>

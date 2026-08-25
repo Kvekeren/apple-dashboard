@@ -21,7 +21,7 @@ export const MONITORING_NAV: {
   requiresAuth?: boolean;
 }[] = [
   { href: "/", label: "Home" },
-  { href: "/recent", label: "Recent" },
+  { href: "/agenda", label: "Agenda" },
   { href: "/ideeen", label: "Ideeën" },
   { href: "/jaarcijfers", label: "Jaarcijfers", requiresAuth: true },
   { href: "/conversie", label: "Conversies", requiresAuth: true },

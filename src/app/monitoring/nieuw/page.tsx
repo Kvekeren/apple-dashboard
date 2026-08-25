@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Legacy URL → Recent. */
+/** Legacy URL voor de oude Recent-pagina. */
 export default function NieuwLegacyRedirectPage() {
-  redirect("/recent");
+  redirect("/");
 }

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Apple-agenda — vijf concepten</title>
+  <link rel="stylesheet" href="./tokens.css" />
+  <style>
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      letter-spacing: -0.03em;
+      color: var(--blue);
+    }
+    .lede {
+      font-size: 16px;
+      color: var(--ink-2);
+      max-width: 640px;
+      margin: 10px 0 0;
+      line-height: 1.55;
+    }
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 20px 0 28px;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--ink-2);
+    }
+    .stat b { color: var(--ink); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .pick {
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 16px 14px;
+      text-decoration: none;
+      color: inherit;
+      min-height: 210px;
+      transition: transform 150ms var(--ease), box-shadow 150ms var(--ease);
+    }
+    .pick:hover {
+      text-decoration: none;
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+    .pick .nr {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+    }
+    .pick h2 {
+      margin: 4px 0 8px;
+      font-size: 20px;
+      color: var(--blue);
+      letter-spacing: -0.02em;
+    }
+    .pick p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--ink-2);
+      line-height: 1.5;
+      flex: 1;
+    }
+    .mini {
+      margin-top: 14px;
+      height: 44px;
+      border-radius: 4px;
+      background: var(--paper-1);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .note {
+      margin-top: 28px;
+      font-size: 13px;
+      color: var(--ink-3);
+      max-width: 720px;
+    }
+    /* tiny layout sketches */
+    .s1 { display: grid; grid-template-columns: 16px 1fr 1fr 1fr; gap: 3px; padding: 6px; height: 100%; }
+    .s1 i { background: var(--blue-soft); border-radius: 2px; }
+    .s1 i.c { background: var(--c-icreate); }
+    .s1 i.p { background: var(--c-iphoned); }
+    .s1 i.u { background: var(--c-iculture); }
+    .s2 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding: 6px; height: 100%; }
+    .s2 b { background: #fff; border: 1px solid var(--border); border-radius: 2px; display: flex; flex-direction: column; gap: 2px; padding: 3px; }
+    .s2 i { height: 4px; border-radius: 1px; }
+    .s3 { display: grid; grid-template-rows: 1fr 1fr 1fr; gap: 4px; padding: 6px; height: 100%; }
+    .s3 div { display: flex; gap: 4px; align-items: center; }
+    .s3 span { width: 18px; height: 8px; border-radius: 2px; }
+    .s3 i { flex: 1; height: 8px; border-radius: 2px; background: var(--blue-soft); }
+    .s4 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding: 6px; height: 100%; }
+    .s4 b { background: #fff; border: 1px solid var(--border); border-radius: 2px; }
+    .s5 { display: grid; grid-template-rows: 1fr 1fr 1fr 8px; gap: 3px; padding: 6px; height: 100%; }
+    .s5 div { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; }
+    .s5 i { background: var(--blue-soft); border-radius: 1px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="/" style="font-size:12px;font-weight:600;color:var(--ink-3)">← Dashboard</a>
+    <h1>Vijf agenda-concepten</h1>
+    <p class="lede">
+      Klikbare HTML-mockups voor de Apple-coördinator. Zelfde verzonnen content,
+      realistische volumes (iPhoned ~7/dag, iCulture ~6–8, iCreate ~3–4), week- én maandweergave.
+    </p>
+    <div class="stats" id="stats"></div>
+    <div class="grid">
+      <a class="pick" href="./01-zwembanen.html">
+        <span class="nr">Concept 1</span>
+        <h2>Zwembanen</h2>
+        <p>Dagen als rijen, iCreate / iPhoned / iCulture als kolommen. Sterkste antwoord op “altijd alle drie titels zien”.</p>
+        <div class="mini s1">
+          <i></i><i class="c"></i><i class="p"></i><i class="u"></i>
+          <i></i><i class="c"></i><i class="p"></i><i class="u"></i>
+          <i></i><i class="c"></i><i class="p"></i><i class="u"></i>
+        </div>
+      </a>
+      <a class="pick" href="./02-kalender.html">
+        <span class="nr">Concept 2</span>
+        <h2>Kalenderstapels</h2>
+        <p>Klassieke maandkalender. Elke dagcel heeft drie gekleurde stapels — handig om volume per dag te zien.</p>
+        <div class="mini s2">
+          <b><i style="background:var(--c-icreate)"></i><i style="background:var(--c-iphoned)"></i><i style="background:var(--c-iculture)"></i></b>
+          <b><i style="background:var(--c-icreate)"></i><i style="background:var(--c-iphoned)"></i></b>
+          <b><i style="background:var(--c-iphoned)"></i><i style="background:var(--c-iculture)"></i></b>
+          <b></b><b></b><b></b><b></b>
+        </div>
+      </a>
+      <a class="pick" href="./03-timeline.html">
+        <span class="nr">Concept 3</span>
+        <h2>Productietimeline</h2>
+        <p>Drie titelrijen op een tijdlijn. Herplaatsingen als stippellijn tussen de banen — voor “dit stuk ook naar iCreate”.</p>
+        <div class="mini s3">
+          <div><span style="background:var(--c-icreate)"></span><i></i></div>
+          <div><span style="background:var(--c-iphoned)"></span><i></i></div>
+          <div><span style="background:var(--c-iculture)"></span><i></i></div>
+        </div>
+      </a>
+      <a class="pick" href="./04-weekboard.html">
+        <span class="nr">Concept 4</span>
+        <h2>Redactie-weekboard</h2>
+        <p>Maandag tot zondag als kolommen, zoals een redactievergadering. Per dag de drie merken als blokken onder elkaar.</p>
+        <div class="mini s4"><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div>
+      </a>
+      <a class="pick" href="./05-heatmap.html">
+        <span class="nr">Concept 5</span>
+        <h2>Heatmap + weekdetail</h2>
+        <p>Vier weken volume of GA4/GSC per titel. Klik een week voor het drie-koloms detail. Lost dichtheid op zonder titels te verbergen.</p>
+        <div class="mini s5">
+          <div><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </a>
+    </div>
+    <p class="note">
+      In elk concept: week/maand-toggle, klik een kaart voor GA4/GSC en “plaats ook op…”,
+      knop Nieuwe kaart. Ga één week vooruit (24–30 aug) om geplande herplaatsingen te zien.
+      Niets wordt opgeslagen — dit is alleen om layouts te vergelijken.
+    </p>
+  </div>
+  <script src="./data.js"></script>
+  <script>
+    const s = AgendaData.stats();
+    const by = s.byTitle;
+    document.getElementById("stats").innerHTML = `
+      <span class="stat"><b>${s.published}</b> verschenen (4 weken)</span>
+      <span class="stat"><b>${s.planned}</b> gepland</span>
+      <span class="stat"><b>${s.links}</b> herplaatsingen</span>
+      <span class="stat">iCreate <b>${by.icreate}</b></span>
+      <span class="stat">iPhoned <b>${by.iphoned}</b></span>
+      <span class="stat">iCulture <b>${by.iculture}</b></span>
+      <span class="stat"><b>${s.hits}</b> hits (hoge cijfers)</span>
+    `;
+  </script>
+</body>
+</html>

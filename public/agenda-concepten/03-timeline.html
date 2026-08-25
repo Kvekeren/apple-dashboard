@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agenda — concept 3 · Productietimeline</title>
+  <link rel="stylesheet" href="./tokens.css" />
+  <style>
+    .tl-wrap { position: relative; }
+    .tl {
+      display: grid;
+      gap: 8px;
+    }
+    .tl-days, .track {
+      display: grid;
+      gap: 6px;
+      align-items: start;
+    }
+    .tl.week { grid-template-columns: 108px 1fr; }
+    .tl.week .tl-days,
+    .tl.week .track { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .tl.month { grid-template-columns: 108px 1fr; }
+    .tl.month .tl-days,
+    .tl.month .track { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .lane-name {
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-top: 22px;
+    }
+    .dayh {
+      font-size: 11px;
+      font-weight: 650;
+      color: var(--ink-3);
+      text-align: center;
+      padding-bottom: 4px;
+    }
+    .dayh.today { color: var(--blue); }
+    .col {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 5px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 88px;
+    }
+    .col.empty { background: var(--paper-1); }
+    .week-block { margin-bottom: 18px; }
+    .week-block h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: var(--ink-3);
+      font-weight: 650;
+    }
+    svg.links {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+    svg.links path {
+      fill: none;
+      stroke: var(--warning);
+      stroke-width: 1.6;
+      stroke-dasharray: 4 3;
+      opacity: 0.85;
+    }
+  </style>
+</head>
+<body>
+  <script src="./data.js"></script>
+  <script src="./chrome.js"></script>
+  <script>
+    const D = AgendaData;
+    const expanded = new Set();
+
+    function tracksHtml(days, max) {
+      const daysRow = `<div></div><div class="tl-days">${days.map((day) => {
+        const iso = D.toIso(day);
+        const today = iso === D.toIso(D.TODAY);
+        return `<div class="dayh${today ? " today" : ""}">${D.formatDayShort(day)}</div>`;
+      }).join("")}</div>`;
+      const rows = D.TITLES.map((t) => {
+        const cols = days.map((day) => {
+          const iso = D.toIso(day);
+          const arts = D.articlesOn(iso, t.id);
+          return `<div class="col${arts.length ? "" : " empty"}">${D.renderStack(arts, { key: iso + ":" + t.id, max, expanded })}</div>`;
+        }).join("");
+        return `<div class="lane-name"><i class="title-dot ${t.id}"></i>${t.label}</div><div class="track">${cols}</div>`;
+      }).join("");
+      return daysRow + rows;
+    }
+
+    function drawLinks(wrap) {
+      const svg = wrap.querySelector("svg.links");
+      const rect = wrap.getBoundingClientRect();
+      const pairs = D.planned.filter((a) => a.sourceId);
+      let paths = "";
+      for (const tgt of pairs) {
+        const src = D.sourceArticle(tgt);
+        if (!src) continue;
+        const a = wrap.querySelector(`[data-id="${src.id}"]`);
+        const b = wrap.querySelector(`[data-id="${tgt.id}"]`);
+        if (!a || !b) continue;
+        const ra = a.getBoundingClientRect();
+        const rb = b.getBoundingClientRect();
+        const x1 = ra.left + ra.width / 2 - rect.left;
+        const y1 = ra.bottom - rect.top;
+        const x2 = rb.left + rb.width / 2 - rect.left;
+        const y2 = rb.top - rect.top;
+        const mid = (y1 + y2) / 2;
+        paths += `<path d="M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}" />`;
+      }
+      svg.innerHTML = paths;
+    }
+
+    AgendaChrome.mount({
+      name: "Productietimeline",
+      blurb: "Drie titelrijen op een tijdlijn. Herplaatsingen als stippellijn tussen de banen.",
+      monthMode: "fourweeks",
+      render(board, ctx) {
+        const max = ctx.view === "week" ? 4 : 1;
+        const wrap = document.createElement("div");
+        wrap.className = "tl-wrap";
+        if (ctx.view === "week") {
+          wrap.innerHTML = `<div class="tl week">${tracksHtml(ctx.days, max)}</div><svg class="links"></svg>`;
+        } else {
+          wrap.innerHTML = ctx.monthWeeks.map((week, i) => {
+            const label = D.formatPeriodWeek(week[0]);
+            return `<div class="week-block"><h3>Week ${i + 1} · ${label}</h3><div class="tl month">${tracksHtml(week, max)}</div></div>`;
+          }).join("") + `<svg class="links"></svg>`;
+        }
+        board.innerHTML = "";
+        board.appendChild(wrap);
+        D.bindMore(board, expanded);
+        requestAnimationFrame(() => drawLinks(wrap));
+      },
+    });
+  </script>
+</body>
+</html>

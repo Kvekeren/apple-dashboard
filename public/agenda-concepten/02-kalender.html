@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agenda — concept 2 · Kalenderstapels</title>
+  <link rel="stylesheet" href="./tokens.css" />
+  <style>
+    .cal-head, .cal {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .cal-head div {
+      font-size: 11px;
+      font-weight: 650;
+      color: var(--ink-3);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 0 6px 4px;
+    }
+    .day {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      min-height: 132px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .day.out { background: var(--paper-1); opacity: 0.55; }
+    .day.today { outline: 2px solid var(--blue); }
+    .day .dnum {
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--blue);
+    }
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-height: 0;
+    }
+    .stack-lab {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .week .day { min-height: 280px; }
+  </style>
+</head>
+<body>
+  <script src="./data.js"></script>
+  <script src="./chrome.js"></script>
+  <script>
+    const D = AgendaData;
+    const expanded = new Set();
+
+    AgendaChrome.mount({
+      name: "Kalenderstapels",
+      blurb: "Elke dagcel toont drie gekleurde stapels — volume per titel in één oogopslag.",
+      render(board, ctx) {
+        const max = ctx.view === "week" ? 3 : 1;
+        const month = ctx.view === "month" ? ctx.rangeStart.getMonth() : null;
+        const weeks = ctx.view === "month" ? ctx.monthWeeks : [ctx.days];
+        let html = `<div class="cal-head">${D.NL_DAYS.map((d) => `<div>${d}</div>`).join("")}</div>`;
+        html += `<div class="cal ${ctx.view}">`;
+        for (const week of weeks) {
+          for (const day of week) {
+            const iso = D.toIso(day);
+            const inMonth = ctx.view === "week" || day.getMonth() === ctx.cursorMonth;
+            const today = iso === D.toIso(D.TODAY);
+            html += `<div class="day${inMonth ? "" : " out"}${today ? " today" : ""}"><div class="dnum">${day.getDate()}</div>`;
+            for (const t of D.TITLES) {
+              const arts = D.articlesOn(iso, t.id);
+              if (!arts.length) continue;
+              html += `<div class="stack">
+                <div class="stack-lab"><i class="title-dot ${t.id}"></i>${t.label} · ${arts.length}</div>
+                ${D.renderStack(arts, { key: iso + ":" + t.id, max, expanded, variant: "chip" })}
+              </div>`;
+            }
+            html += `</div>`;
+          }
+        }
+        html += `</div>`;
+        board.innerHTML = html;
+        D.bindMore(board, expanded);
+      },
+    });
+  </script>
+</body>
+</html>

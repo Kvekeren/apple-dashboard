@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agenda — stijlvarianten</title>
+  <link rel="stylesheet" href="/agenda-concepten/tokens.css" />
+  <style>
+    body { background: #f5f7f9; }
+    .page { max-width: 1280px; margin: 0 auto; padding: 0 0 80px; }
+    .intro {
+      padding: 28px 24px 16px;
+    }
+    .intro a.back { font-size: 12px; font-weight: 600; color: var(--ink-3); text-decoration: none; }
+    .intro a.back:hover { color: var(--blue); }
+    .intro h1 {
+      margin: 8px 0 0;
+      font-size: 28px;
+      letter-spacing: -0.03em;
+      color: var(--blue);
+    }
+    .intro p {
+      margin: 8px 0 0;
+      max-width: 640px;
+      color: var(--ink-2);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .jump {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px 24px;
+      background: color-mix(in srgb, var(--blue-pale) 92%, transparent);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .jump a {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--blue);
+      text-decoration: none;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      background: #fff;
+    }
+    .jump a:hover { border-color: var(--blue); }
+    .variant {
+      padding: 28px 24px 8px;
+    }
+    .v-head h2 {
+      margin: 0;
+      font-size: 18px;
+      color: var(--blue);
+      letter-spacing: -0.02em;
+    }
+    .v-head p {
+      margin: 6px 0 14px;
+      font-size: 13px;
+      color: var(--ink-3);
+      max-width: 720px;
+    }
+    .board-frame {
+      background: var(--paper-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      overflow: auto;
+    }
+    .heads, .row {
+      display: grid;
+      gap: 8px 10px;
+      align-items: stretch;
+    }
+    .col-h {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--blue);
+      padding: 8px 10px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+    }
+    .col-h img { width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--border); background: #fff; }
+    .col-h .n { margin-left: auto; color: var(--ink-3); font-weight: 500; }
+    .day {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 650;
+      color: var(--ink-2);
+    }
+    .day .num { display: block; font-size: 18px; color: var(--blue); letter-spacing: -0.03em; }
+    .cell {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-height: 44px;
+    }
+    .cell.empty { background: var(--paper-1); }
+    .card {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: var(--r-sm);
+      padding: 5px 8px 5px 7px;
+      position: relative;
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      border-radius: 4px 0 0 4px;
+      background: var(--acc, var(--blue));
+    }
+    .card.t-icreate { --acc: var(--c-icreate); }
+    .card.t-iphoned { --acc: var(--c-iphoned); }
+    .card.t-iculture { --acc: var(--c-iculture); }
+    .card.planned {
+      background: repeating-linear-gradient(-45deg, #fff, #fff 6px, var(--paper-1) 6px, var(--paper-1) 12px);
+      border-style: dashed;
+    }
+    .media {
+      flex: 0 0 auto;
+      background: var(--paper-2);
+      overflow: hidden;
+      border-radius: 3px;
+    }
+    .media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .media.planned {
+      background: repeating-linear-gradient(-45deg, var(--paper-1), var(--paper-1) 8px, var(--paper-2) 8px, var(--paper-2) 16px);
+    }
+    .title {
+      flex: 1;
+      min-width: 0;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+    }
+    .pv {
+      flex: 0 0 auto;
+      font-size: 11px;
+      font-weight: 650;
+      color: var(--ink-2);
+      font-variant-numeric: tabular-nums;
+    }
+    .repub {
+      flex: 1 0 100%;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--warning);
+      padding-left: 0;
+    }
+
+    /* A — huidig */
+    .s-a .heads, .s-a .row { grid-template-columns: 92px repeat(3, minmax(0, 1fr)); }
+    .s-a .media { width: 104px; height: 59px; }
+    .s-a .day.today { outline: 2px solid var(--blue); }
+
+    /* B — compact + rijtint */
+    .s-b .heads, .s-b .row { grid-template-columns: 72px repeat(3, minmax(0, 1fr)); gap: 6px 8px; }
+    .s-b .cell { padding: 4px; gap: 4px; }
+    .s-b .card { gap: 6px; padding: 3px 6px 3px 6px; }
+    .s-b .media { width: 64px; height: 36px; }
+    .s-b .title { font-size: 12px; -webkit-line-clamp: 1; white-space: nowrap; display: block; text-overflow: ellipsis; }
+    .s-b .pv { font-size: 10px; }
+    .s-b .day { padding: 6px; }
+    .s-b .day .num { font-size: 16px; }
+    .s-b .row.today { background: var(--blue-pale); border-radius: 6px; padding: 6px; margin: 0 -6px; }
+    .s-b .row.today .day {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+    .s-b .row.today .day .num { color: #fff; }
+    .s-b .repub { display: none; }
+
+    /* C — beeld boven */
+    .s-c .heads, .s-c .row { grid-template-columns: 88px repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
+    .s-c .cell { padding: 8px; gap: 8px; background: var(--paper-1); border: 0; }
+    .s-c .card {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      padding: 0 0 8px;
+      overflow: hidden;
+    }
+    .s-c .media { width: 100%; height: auto; aspect-ratio: 16/9; border-radius: 4px 4px 0 0; }
+    .s-c .media.planned { min-height: 72px; }
+    .s-c .title { padding: 0 8px; font-size: 13px; }
+    .s-c .pv { padding: 0 8px; }
+    .s-c .repub { padding: 0 8px; }
+    .s-c .day.today {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+    .s-c .day.today .num { color: #fff; }
+    .s-c .row.today .cell { box-shadow: inset 0 3px 0 var(--blue); }
+
+    /* D — dagbalk */
+    .s-d .heads { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .s-d .row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .s-d .banner {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 8px 12px;
+      margin-top: 6px;
+      border-radius: var(--r-sm);
+      background: #fff;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--ink-2);
+    }
+    .s-d .banner b { color: var(--blue); font-size: 15px; }
+    .s-d .banner.today {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: color-mix(in srgb, #fff 80%, var(--blue-soft));
+    }
+    .s-d .banner.today b { color: #fff; }
+    .s-d .chip {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: #fff;
+      color: var(--blue);
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .s-d .media { width: 88px; height: 50px; }
+    .s-d .title { font-size: 12.5px; }
+
+    /* E — ademruimte */
+    .s-e .heads, .s-e .row { grid-template-columns: 108px repeat(3, minmax(0, 1fr)); gap: 12px 14px; }
+    .s-e .cell { padding: 10px; gap: 8px; }
+    .s-e .card { gap: 12px; padding: 8px 10px 8px 10px; }
+    .s-e .media { width: 140px; height: 79px; border-radius: 4px; }
+    .s-e .title { font-size: 14px; font-weight: 600; }
+    .s-e .pv { font-size: 12px; }
+    .s-e .day { padding: 12px 10px; }
+    .s-e .day .num { font-size: 22px; }
+    .s-e .day.today {
+      background: #fff;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 1px var(--blue);
+    }
+    .s-e .today-chip {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff;
+      background: var(--blue);
+      padding: 2px 6px;
+      border-radius: 999px;
+    }
+    .s-e .row.today .cell { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="intro">
+      <a class="back" href="/agenda-concepten/01-zwembanen.html">← Terug naar de agenda</a>
+      <h1>Stijlvarianten</h1>
+      <p>Zelfde dummy-week, vijf keer anders vormgegeven. Let vooral op kaartmaat, beeldformaat en hoe maandag (vandaag) zich onderscheidt.</p>
+    </div>
+    <nav class="jump">
+      <a href="#a">A · Huidig</a>
+      <a href="#b">B · Compact</a>
+      <a href="#c">C · Beeld boven</a>
+      <a href="#d">D · Dagbalk</a>
+      <a href="#e">E · Ademruimte</a>
+    </nav>
+    <div id="boards"></div>
+  </div>
+  <script>
+    const TITLES = [
+      { id: "icreate", label: "iCreate", logo: "/agenda-concepten/logos/icreate.png" },
+      { id: "iphoned", label: "iPhoned", logo: "/agenda-concepten/logos/iphoned.png" },
+      { id: "iculture", label: "iCulture", logo: "/agenda-concepten/logos/iculture.png" },
+    ];
+    const DAYS = [
+      { iso: "2026-08-24", n: 24, lab: "ma 24 aug", long: "Maandag 24 augustus", today: true },
+      { iso: "2026-08-25", n: 25, lab: "di 25 aug", long: "Dinsdag 25 augustus" },
+      { iso: "2026-08-26", n: 26, lab: "wo 26 aug", long: "Woensdag 26 augustus" },
+      { iso: "2026-08-27", n: 27, lab: "do 27 aug", long: "Donderdag 27 augustus" },
+    ];
+    const img = (id) => `https://picsum.photos/seed/agenda-${id}/400/225`;
+    const ARTICLES = [
+      { id: 1, titleId: "icreate", date: "2026-08-24", headline: "Zo ruim je je iPhone-foto’s snel en efficiënt op", pv: "4,2k", img: img(1) },
+      { id: 2, titleId: "icreate", date: "2026-08-24", headline: "Apple’s nieuwe CEO heeft grote plannen: dit kun je verwachten", pv: "12k", img: img(2) },
+      { id: 3, titleId: "icreate", date: "2026-08-24", headline: "MacBook Air M5: eerste indrukken en koopadvies", pv: "1,8k", img: img(3) },
+      { id: 4, titleId: "icreate", date: "2026-08-24", headline: "Shortcuts: 6 automations die je elke ochtend tijd schelen", pv: "960", img: img(4) },
+      { id: 5, titleId: "iphoned", date: "2026-08-24", headline: "Op deze datum komt Apple met belangrijk nieuws", pv: "35k", img: img(5) },
+      { id: 6, titleId: "iphoned", date: "2026-08-24", headline: "Apple Watch Ultra 3 vs Ultra 4: de 3 grootste verschillen", pv: "8,1k", img: img(6) },
+      { id: 7, titleId: "iphoned", date: "2026-08-24", headline: "iOS 26.4 beta 1 is uit: dit zijn de opvallendste wijzigingen", pv: "6,4k", img: img(7) },
+      { id: 8, titleId: "iphoned", date: "2026-08-24", headline: "iPhone 17e: voor wie deze instapper wél slim is", pv: "2,2k", img: img(8) },
+      { id: 9, titleId: "iphoned", date: "2026-08-24", headline: "AirPods Pro 3 vs AirPods 4: welke moet je nu nemen?", pv: "3,0k", img: img(9) },
+      { id: 10, titleId: "iculture", date: "2026-08-24", headline: "iPhone 17 Pro Max nu veel goedkoper: dit is de beste aanbieding", pv: "22k", img: img(10) },
+      { id: 11, titleId: "iculture", date: "2026-08-24", headline: "Gerucht: Apple past Stores aan voor de iPhone 18", pv: "5,5k", img: img(11) },
+      { id: 12, titleId: "iculture", date: "2026-08-24", headline: "9 redenen om de iPhone 18 Pro (Max) volgende maand te halen", pv: "7,8k", img: img(12) },
+      { id: 13, titleId: "iculture", date: "2026-08-24", headline: "Wandelen met je Apple Watch: voorkom deze 5 fouten", pv: "1,1k", img: img(13) },
+      { id: 14, titleId: "iculture", date: "2026-08-24", headline: "Safari vs Chrome op iPhone: welke is sneller geworden?", pv: "890", img: img(14) },
+      { id: 15, titleId: "icreate", date: "2026-08-25", headline: "iPhone 17 Pro Max nu veel goedkoper", pv: "gepland", planned: true, repub: "van iCulture · 24.08" },
+      { id: 16, titleId: "iphoned", date: "2026-08-25", headline: "Koopgids: iPhone 16 of wachten op de 18?", pv: "gepland", planned: true },
+      { id: 17, titleId: "iculture", date: "2026-08-25", headline: "HomePod mini 2: geruchten, prijs en of je moet wachten", pv: "gepland", planned: true },
+      { id: 18, titleId: "iphoned", date: "2026-08-26", headline: "Beveiligingsupdate uit: installeer deze build vandaag nog", pv: "1,4k", img: img(18) },
+      { id: 19, titleId: "iculture", date: "2026-08-26", headline: "Apple Intelligence in het Nederlands: wat werkt er écht?", pv: "3,6k", img: img(19) },
+    ];
+
+    const VARIANTS = [
+      {
+        id: "a",
+        cls: "s-a",
+        name: "A · Huidig",
+        blurb: "Referentie: beeld 104×59 naast de titel, vandaag als blauwe outline om het datumblok.",
+      },
+      {
+        id: "b",
+        cls: "s-b",
+        name: "B · Compact",
+        blurb: "Kleinere kaarten en thumbs (64×36), titel op één regel. Vandaag is een volle rijtint: blauw datumblok, zachte band over de drie kolommen.",
+      },
+      {
+        id: "c",
+        cls: "s-c",
+        name: "C · Beeld boven",
+        blurb: "Kaart als mini-artikel: 16:9 over de volle kolombreedte, titel eronder. Vandaag: datumkolom ingekleurd plus een blauwe streep boven de cellen.",
+      },
+      {
+        id: "d",
+        cls: "s-d",
+        name: "D · Dagbalk",
+        blurb: "Geen datumkolom links. Elke dag begint met een balk over de volle breedte. Vandaag is die balk donkerblauw met een ‘vandaag’-chip.",
+      },
+      {
+        id: "e",
+        cls: "s-e",
+        name: "E · Ademruimte",
+        blurb: "Ruimere kaarten, groter beeld (140×79, nog steeds 16:9). Vandaag krijgt een ‘vandaag’-chip op de datum en een iets blauwere celrand.",
+      },
+    ];
+
+    function onDay(iso, titleId) {
+      return ARTICLES.filter((a) => a.date === iso && a.titleId === titleId);
+    }
+
+    function cardHtml(a, style) {
+      const media = a.planned
+        ? `<span class="media planned" aria-hidden="true"></span>`
+        : `<span class="media"><img src="${a.img}" alt="" /></span>`;
+      const repub = a.repub && style !== "s-b" ? `<span class="repub">${a.repub}</span>` : "";
+      return `<button type="button" class="card t-${a.titleId}${a.planned ? " planned" : ""}">
+        ${media}
+        <span class="title">${a.headline}</span>
+        <span class="pv">${a.pv}</span>
+        ${repub}
+      </button>`;
+    }
+
+    function heads(days) {
+      const counts = Object.fromEntries(
+        TITLES.map((t) => [t.id, ARTICLES.filter((a) => a.titleId === t.id && days.some((d) => d.iso === a.date)).length])
+      );
+      return TITLES.map((t) =>
+        `<div class="col-h"><img src="${t.logo}" alt="" />${t.label}<span class="n">${counts[t.id]}</span></div>`
+      ).join("");
+    }
+
+    function boardHtml(v) {
+      const isD = v.cls === "s-d";
+      let html = `<div class="heads">${isD ? "" : "<div></div>"}${heads(DAYS)}</div>`;
+      for (const day of DAYS) {
+        const today = day.today ? " today" : "";
+        if (isD) {
+          html += `<div class="row">
+            <div class="banner${today}"><b>${day.long}</b>${day.today ? '<span class="chip">Vandaag</span>' : ""}</div>
+            ${TITLES.map((t) => {
+              const arts = onDay(day.iso, t.id);
+              return `<div class="cell${arts.length ? "" : " empty"}">${arts.map((a) => cardHtml(a, v.cls)).join("")}</div>`;
+            }).join("")}
+          </div>`;
+        } else {
+          html += `<div class="row${today}">
+            <div class="day${today}"><span class="num">${day.n}</span>${day.lab}${v.cls === "s-e" && day.today ? '<span class="today-chip">Vandaag</span>' : ""}</div>
+            ${TITLES.map((t) => {
+              const arts = onDay(day.iso, t.id);
+              return `<div class="cell${arts.length ? "" : " empty"}">${arts.map((a) => cardHtml(a, v.cls)).join("")}</div>`;
+            }).join("")}
+          </div>`;
+        }
+      }
+      return html;
+    }
+
+    document.getElementById("boards").innerHTML = VARIANTS.map((v) => `
+      <section class="variant" id="${v.id}">
+        <div class="v-head">
+          <h2>${v.name}</h2>
+          <p>${v.blurb}</p>
+        </div>
+        <div class="board-frame">
+          <div class="${v.cls}">${boardHtml(v)}</div>
+        </div>
+      </section>
+    `).join("");
+  </script>
+</body>
+</html>
