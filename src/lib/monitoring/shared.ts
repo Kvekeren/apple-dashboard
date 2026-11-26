@@ -156,7 +156,7 @@ export function realtimeUrlLabel(url: string): string {
   try {
     const u = new URL(url);
     if (u.pathname === "/" || u.pathname === "") return "Homepagina";
-    return u.pathname + u.search;
+    return u.pathname;
   } catch {
     return url;
   }
@@ -230,23 +230,51 @@ export function aggregateWeeklyTopArticlesBySource(
   return out;
 }
 
+/** URL zonder querystring/hash/AMP-suffix, zodat varianten van één artikel samenvallen. */
+export function canonicalArticleUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    u.search = "";
+    u.hash = "";
+    u.pathname = u.pathname.replace(/\/amp\/?$/i, "/");
+    return u.toString();
+  } catch {
+    return url.split(/[?#]/)[0] ?? url;
+  }
+}
+
+function isHomepageUrl(url: string): boolean {
+  try {
+    return (new URL(url).pathname.replace(/\/+$/, "") || "/") === "/";
+  } catch {
+    return false;
+  }
+}
+
 export function aggregateGscTopUrlsBySource(
   urlMap: Record<string, { clicks: number }>,
   labels: readonly string[],
   limit: number,
   resolveTitle: (url: string) => string
 ): Record<string, WeeklyTopArticleRow[]> {
+  // ?amp-, querystring- en /amp/-varianten optellen bij het gewone artikel; homepage overslaan.
+  const merged = new Map<string, number>();
+  for (const [url, v] of Object.entries(urlMap)) {
+    if (!(v.clicks > 0)) continue;
+    const canon = canonicalArticleUrl(url);
+    if (isHomepageUrl(canon)) continue;
+    merged.set(canon, (merged.get(canon) ?? 0) + v.clicks);
+  }
   const out: Record<string, WeeklyTopArticleRow[]> = {};
   for (const label of labels) {
-    out[label] = Object.entries(urlMap)
+    out[label] = [...merged.entries()]
       .filter(([url]) => titleLabelFromPageUrl(url) === label)
-      .filter(([, v]) => v.clicks > 0)
-      .sort((a, b) => b[1].clicks - a[1].clicks)
+      .sort((a, b) => b[1] - a[1])
       .slice(0, limit)
-      .map(([url, v]) => ({
+      .map(([url, clicks]) => ({
         pageTitle: resolveTitle(url),
         url,
-        metricValue: v.clicks,
+        metricValue: clicks,
       }));
   }
   return out;

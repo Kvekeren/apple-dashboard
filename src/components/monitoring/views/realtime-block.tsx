@@ -31,6 +31,20 @@ type RealtimeTopPage = {
   screenPageViews: number;
 };
 
+/** Paginatitel (zonder " - Merk"-achtervoegsel) als die er is, anders het pad. */
+function realtimeLabel(p: RealtimeTopPage): string {
+  const path = realtimeUrlLabel(p.url);
+  if (path === "Homepagina") return path;
+  const title = (p.pageTitle || "").trim();
+  if (title && title !== "(not set)" && title !== "(zonder titel)") {
+    const clean = title
+      .replace(/\s+[-|–]\s+(iCreate|iPhoned|iCulture|Android ?Planet|Androidworld)\s*$/i, "")
+      .trim();
+    if (clean.length > 3) return clean;
+  }
+  return path;
+}
+
 function RealtimeSiteTopPages({ pages }: { pages: RealtimeTopPage[] }) {
   const [page, setPage] = useState(1);
 
@@ -57,7 +71,7 @@ function RealtimeSiteTopPages({ pages }: { pages: RealtimeTopPage[] }) {
               className="min-w-0 truncate text-primary underline-offset-2 hover:underline"
               title={p.url}
             >
-              {realtimeUrlLabel(p.url)}
+              {realtimeLabel(p)}
             </a>
             <span className="shrink-0 tabular-nums text-foreground">
               {p.screenPageViews}
@@ -108,7 +122,7 @@ function RealtimeBlockSkeleton() {
       {labels.map((src) => {
         const fav = favIconUrl(src);
         return (
-          <div key={src} className="fnl-card-hover p-5">
+          <div key={src} className="fnl-card-hover min-w-0 p-5">
             <div className="flex flex-col items-center">
               {fav ? <img alt="" src={fav} className="mb-2 size-9 rounded-[8px]" /> : null}
               <div className="font-semibold text-foreground">{src}</div>
@@ -164,7 +178,7 @@ export function RealtimeBlock({
         const lacks = cfg?.some((c) => c.label === src && !c.hasGa4Property);
         const pages = (rt.topPages ?? []).filter((p) => p.source === src);
         return (
-          <div key={src} className="fnl-card-hover p-5">
+          <div key={src} className="fnl-card-hover min-w-0 p-5">
             <div className="flex flex-col items-center">
               {favIconUrl(src) && (
                 <img alt="" src={favIconUrl(src)} className="mb-2 size-9 rounded-[8px]" />

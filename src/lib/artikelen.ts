@@ -1,7 +1,7 @@
 import { fetchTitleFeed } from "@/lib/agenda-feed";
 import { agendaPathKey, agendaUrlKey } from "@/lib/agenda-url";
-import { fetchGA4PathViewsForTitle } from "@/lib/ga4";
-import { getDateRange } from "@/lib/search-console";
+import { fetchGA4PathViewsForTitle, fetchGA4TitlesForPaths } from "@/lib/ga4";
+import { amsterdamDateOffset } from "@/lib/search-console";
 import { kvGetMany, kvSet } from "@/lib/shared-cache";
 import type { SiteTitleId } from "@/lib/site-titles";
 
@@ -25,6 +25,10 @@ export type ArtikelenPayload = {
   rows: ArtikelRow[];
   /** Aantal GA4-toppagina's waarvoor de publicatiedatum (nog) niet bekend is. */
   missingDates: number;
+  /** Aantal artikelen uit de CMS-feed (0 = feed niet bereikbaar, bv. geblokkeerd door de site). */
+  feedCount: number;
+  /** Lukte het om artikelpagina's te lezen? (false = alle opzoekingen mislukten) */
+  pagesReadable: boolean;
 };
 
 /* ------------------------------------------------------------------ */
@@ -157,7 +161,9 @@ export async function buildArtikelenPayload(
   brand: SiteTitleId,
   days: number
 ): Promise<ArtikelenPayload> {
-  const { startDate, endDate } = getDateRange(days);
+  // Artikelen: N dagen t/m vandaag, zodat net gepubliceerde artikelen in de lijst staan.
+  const startDate = amsterdamDateOffset(-(days - 1));
+  const endDate = amsterdamDateOffset(0);
   const after = `${startDate}T00:00:00`;
 
   const t0 = Date.now();
@@ -251,6 +257,25 @@ export async function buildArtikelenPayload(
     if (hit?.title && row.type == null) row.title = stripBrandSuffix(hit.title);
   }
 
+  // Titels voor rijen buiten de feed die nog alleen een slug hebben: uit GA4 (paginatitel).
+  const slugOnly = [...byKey.entries()]
+    .filter(([, r]) => r.type == null && !cache[agendaUrlKey(r.url)]?.title)
+    .sort((a, b) => b[1].pageviews - a[1].pageviews)
+    .slice(0, 200);
+  if (slugOnly.length) {
+    const titles = await fetchGA4TitlesForPaths(
+      accessToken,
+      brand,
+      startDate,
+      endDate,
+      slugOnly.map(([key]) => key)
+    );
+    for (const [key, row] of slugOnly) {
+      const t = titles.get(key);
+      if (t) row.title = stripBrandSuffix(t);
+    }
+  }
+
   console.info(
     `artikelen ${brand} ${days}d: feed ${feed.length}, paden ${pathViews.length}, ` +
       `ophalen ${tFetched - t0}ms, html-lookups (${toFetch.length} kandidaten) ${tLookups - tFetched}ms`
@@ -265,5 +290,7 @@ export async function buildArtikelenPayload(
     meta: { startDate, endDate, days, generatedAt: new Date().toISOString() },
     rows,
     missingDates,
+    feedCount: feed.length,
+    pagesReadable: undated.length === 0 || undated.some((r) => cache[agendaUrlKey(r.url)]?.iso),
   };
 }

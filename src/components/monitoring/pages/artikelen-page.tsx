@@ -67,6 +67,9 @@ function nf(n: number): string {
   return n.toLocaleString("nl-NL");
 }
 
+/** Minder artikelen dan dit in een groep: geen mediaan tonen (te toevallig). */
+const MIN_BUCKET = 5;
+
 type Bucket = { label: string; sub: string; count: number; median: number; avg: number };
 
 function bucketStats(label: string, sub: string, rows: ArtikelRow[]): Bucket {
@@ -112,11 +115,12 @@ function TimingInsights({ rows }: { rows: ArtikelRow[] }) {
           <span className="text-[11px] text-muted-foreground">{b.sub}</span>
         </div>
         <div className="mt-1.5 text-xl font-semibold tabular-nums text-foreground">
-          {b.count ? nf(b.median) : "–"}
+          {b.count >= MIN_BUCKET ? nf(b.median) : "–"}
         </div>
         <div className="text-[11px] text-muted-foreground">
-          mediaan pageviews · {nf(b.count)} artikelen
-          {b.count ? ` · gem. ${nf(b.avg)}` : ""}
+          {b.count >= MIN_BUCKET
+            ? `mediaan pageviews · ${nf(b.count)} artikelen · gem. ${nf(b.avg)}`
+            : `te weinig artikelen (${nf(b.count)})`}
         </div>
       </div>
     );
@@ -370,11 +374,32 @@ export function ArtikelenPage() {
             <p className="text-xs text-muted-foreground">
               Pageviews van {format(parseISO(data.meta.startDate), "d MMMM yyyy", { locale: nl })} t/m{" "}
               {format(parseISO(data.meta.endDate), "d MMMM yyyy", { locale: nl })}. Artikelen van de
-              laatste dagen hebben nog minder tijd gehad om views te verzamelen.
-              {data.missingDates > 0
-                ? ` Van ${nf(data.missingDates)} toppagina's is de publicatiedatum nog onbekend; die vullen zich bij een volgende verversing aan.`
+              laatste dagen hebben nog minder tijd gehad om views te verzamelen. Cijfers van vandaag
+              lopen een paar uur achter.
+              {data.missingDates > 0 && data.feedCount > 0 && data.pagesReadable
+                ? ` Van ${nf(data.missingDates)} oudere toppagina's is de publicatiedatum nog onbekend; die vullen zich bij volgende verversingen aan.`
                 : ""}
             </p>
+          ) : null}
+          {isCurrent && data && data.feedCount === 0 ? (
+            <div
+              role="status"
+              className="rounded-[8px] border border-[var(--fnl-warning)]/35 bg-[#fdf8ed] px-4 py-3 text-sm text-[var(--fnl-ink-2)]"
+            >
+              <strong>De artikellijst van deze site is niet op te halen.</strong> De website blokkeert
+              verzoeken van de dashboardserver, waardoor publicatiedatum en -tijd ontbreken. Daardoor
+              werken &quot;Chronologisch&quot;, &quot;Wanneer publiceren?&quot; en het vinkje
+              &quot;Alleen artikelen gepubliceerd in deze periode&quot; hier niet.{" "}
+              {view === "top" && onlyInPeriod ? (
+                <button
+                  type="button"
+                  onClick={() => setOnlyInPeriod(false)}
+                  className="font-semibold text-primary underline-offset-2 hover:underline"
+                >
+                  Toon de toppagina&apos;s in pageviews
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </header>
 
@@ -392,7 +417,9 @@ export function ArtikelenPage() {
               <ArticleTable rows={shown} maxViews={maxViews} ranked={view === "top"} />
             ) : (
               <div className="fnl-card py-12 text-center text-sm text-muted-foreground">
-                Geen artikelen gevonden voor deze periode.
+                {data.feedCount === 0
+                  ? "Zonder publicatiedatums kan deze lijst niet gevuld worden (zie de melding hierboven)."
+                  : "Geen artikelen gevonden voor deze periode."}
               </div>
             )}
             {rows.length > visible ? (

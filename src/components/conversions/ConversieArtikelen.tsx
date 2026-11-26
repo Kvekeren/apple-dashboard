@@ -46,6 +46,9 @@ function derived(r: ConversieArtikelRow) {
   };
 }
 
+/** Klikratio pas meetellen vanaf dit aantal pageviews (anders 1 view + 18 klikken = 1.800%). */
+const MIN_PV_FOR_RATIO = 100;
+
 function sortValue(r: ConversieArtikelRow, key: SortKey): number {
   if (key === "ctr" || key === "totalRevenue" || key === "rpm") return derived(r)[key];
   return r[key];
@@ -114,6 +117,7 @@ export function ConversieArtikelen() {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("totalRevenue");
+  const [sortAsc, setSortAsc] = useState(false);
   const [visible, setVisible] = useState(PAGE_STEP);
 
   const load = useCallback(
@@ -167,8 +171,17 @@ export function ConversieArtikelen() {
     return (current?.rows ?? [])
       .filter((r) => typeFilter === "all" || r.pageType === typeFilter)
       .filter((r) => !q || r.path.toLowerCase().includes(q))
-      .sort((a, b) => sortValue(b, sortKey) - sortValue(a, sortKey) || b.pageviews - a.pageviews);
-  }, [current, query, typeFilter, sortKey]);
+      .sort((a, b) => {
+        if (sortKey === "ctr") {
+          // Pagina's met weinig pageviews altijd onderaan bij sorteren op klikratio.
+          const aOk = a.pageviews >= MIN_PV_FOR_RATIO;
+          const bOk = b.pageviews >= MIN_PV_FOR_RATIO;
+          if (aOk !== bOk) return aOk ? -1 : 1;
+        }
+        const diff = sortValue(b, sortKey) - sortValue(a, sortKey);
+        return (sortAsc ? -diff : diff) || b.pageviews - a.pageviews;
+      });
+  }, [current, query, typeFilter, sortKey, sortAsc]);
 
   const changeFilter = (fn: () => void) => {
     fn();
@@ -302,13 +315,23 @@ export function ConversieArtikelen() {
                       <th key={c.key} className="px-2 py-2 text-right font-medium">
                         <button
                           type="button"
-                          onClick={() => changeFilter(() => setSortKey(c.key))}
+                          onClick={() =>
+                            changeFilter(() => {
+                              if (sortKey === c.key) setSortAsc((v) => !v);
+                              else {
+                                setSortKey(c.key);
+                                setSortAsc(false);
+                              }
+                            })
+                          }
                           title={c.title}
-                          aria-sort={sortKey === c.key ? "descending" : undefined}
+                          aria-sort={sortKey === c.key ? (sortAsc ? "ascending" : "descending") : undefined}
                           className={`inline-flex items-center gap-1 hover:text-primary ${sortKey === c.key ? "font-semibold text-primary" : ""}`}
                         >
                           {c.label}
-                          <span aria-hidden className={sortKey === c.key ? "" : "opacity-30"}>↓</span>
+                          <span aria-hidden className={sortKey === c.key ? "" : "opacity-30"}>
+                            {sortKey === c.key && sortAsc ? "↑" : "↓"}
+                          </span>
                         </button>
                       </th>
                     ))}

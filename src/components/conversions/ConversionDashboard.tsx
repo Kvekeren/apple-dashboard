@@ -28,10 +28,7 @@ export function ConversionDashboard() {
   return (
     <div className="space-y-6">
       <header>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          Events, funnels en KPI&apos;s per merk: clicks, engagement, affiliate, advertenties en leads.
-        </p>
-        <div className="mt-4 space-y-3">
+        <div className="space-y-3">
           <ConversionPeriodFilter
             periodPreset={periodPreset}
             setPeriodPreset={setPeriodPreset}

@@ -6,7 +6,7 @@ import { kvGet, kvSet } from "@/lib/shared-cache";
  * Cache voor API-payloads (gedeeld tussen alle serverinstanties, zie shared-cache.ts).
  * Verhoog BRAND_SET_VERSION bij een andere merkenset zodat oude payloads zonder die merken vervallen.
  */
-const BRAND_SET_VERSION = "b5";
+const BRAND_SET_VERSION = "b6"; // b6: periodes = N volle dagen t/m gisteren
 
 function fullKey(key: string): string {
   return `api-${BRAND_SET_VERSION}-${key}`;

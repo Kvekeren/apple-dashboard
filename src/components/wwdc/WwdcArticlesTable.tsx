@@ -45,11 +45,13 @@ function SortableHead({
   label,
   column,
   sortKey,
+  sortAsc,
   onSortChange,
 }: {
   label: string;
   column: WwdcSortKey;
   sortKey?: WwdcSortKey;
+  sortAsc?: boolean;
   onSortChange?: (k: WwdcSortKey) => void;
 }) {
   if (!onSortChange) return <>{label}</>;
@@ -58,12 +60,12 @@ function SortableHead({
     <button
       type="button"
       onClick={() => onSortChange(column)}
-      aria-sort={active ? "descending" : undefined}
+      aria-sort={active ? (sortAsc ? "ascending" : "descending") : undefined}
       className={`inline-flex items-center justify-end gap-1 text-right hover:text-primary ${active ? "font-semibold text-primary" : ""}`}
     >
       {label}
       <span aria-hidden className={active ? "opacity-100" : "opacity-30"}>
-        ↓
+        {active && sortAsc ? "↑" : "↓"}
       </span>
     </button>
   );
@@ -74,6 +76,7 @@ export function WwdcArticlesTable({
   pageOgImages,
   showViewsColumn = false,
   sortKey,
+  sortAsc = false,
   onSortChange,
 }: {
   rows: WwdcArticleTrafficRow[];
@@ -82,6 +85,7 @@ export function WwdcArticlesTable({
   showViewsColumn?: boolean;
   /** Maakt kolomkoppen klikbaar (aflopend sorteren). */
   sortKey?: WwdcSortKey;
+  sortAsc?: boolean;
   onSortChange?: (k: WwdcSortKey) => void;
 }) {
   if (rows.length === 0) {
@@ -115,6 +119,7 @@ export function WwdcArticlesTable({
                   label={CHANNEL_LABELS[key]}
                   column={key}
                   sortKey={sortKey}
+                  sortAsc={sortAsc}
                   onSortChange={onSortChange}
                 />
               </TableHead>
@@ -125,6 +130,7 @@ export function WwdcArticlesTable({
                   label="Weergaven"
                   column="pageviews"
                   sortKey={sortKey}
+                  sortAsc={sortAsc}
                   onSortChange={onSortChange}
                 />
               </TableHead>

@@ -101,9 +101,9 @@ function KpiCard({
       </div>
       {metric.ratioLabel && metric.ratio != null && format !== "percent" ? (
         <div className="mt-0.5 text-[11px] text-muted-foreground">
-          {format === "currency" && metric.ratio != null
-            ? `${metric.ratio.toFixed(1).replace(".", ",")} ${metric.ratioLabel}`
-            : metric.ratioLabel}
+          {`${metric.ratio.toLocaleString("nl-NL", {
+            maximumFractionDigits: Math.abs(metric.ratio) < 1 ? 3 : 1,
+          })} ${metric.ratioLabel}`}
         </div>
       ) : null}
       <div className="mt-2 flex items-baseline justify-between gap-2">

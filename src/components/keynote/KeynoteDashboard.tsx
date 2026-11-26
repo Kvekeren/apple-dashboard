@@ -53,6 +53,14 @@ export function KeynoteDashboard() {
   const [activeBrand, setActiveBrand] = useState<SiteTitleId>("icreate");
   const [period, setPeriod] = useState<KeynotePeriodKey>("thisWeek");
   const [sortKey, setSortKey] = useState<WwdcSortKey>("pageviews");
+  const [sortAsc, setSortAsc] = useState(false);
+  const changeSort = (k: WwdcSortKey) => {
+    if (k === sortKey) setSortAsc((v) => !v);
+    else {
+      setSortKey(k);
+      setSortAsc(false);
+    }
+  };
   const [data, setData] = useState<KeynoteDashboardPayload | null>(() =>
     readKeynoteClientCache("thisWeek")
   );
@@ -178,9 +186,10 @@ export function KeynoteDashboard() {
     return () => window.removeEventListener("keynote-refresh", onRefresh);
   }, [fetchPeriod, period, prefetchAllPeriods]);
 
-  const allRows = [...(data?.byBrand[activeBrand] ?? [])].sort(
-    (a, b) => b[sortKey] - a[sortKey] || b.pageviews - a.pageviews
-  );
+  const allRows = [...(data?.byBrand[activeBrand] ?? [])].sort((a, b) => {
+    const diff = b[sortKey] - a[sortKey];
+    return (sortAsc ? -diff : diff) || b.pageviews - a.pageviews;
+  });
   const articleLimit = showAllArticles ? WWDC_TOP_ARTICLES_MAX : WWDC_TOP_ARTICLES;
   const rows = allRows.slice(0, articleLimit);
   const hasMoreArticles = !showAllArticles && allRows.length > WWDC_TOP_ARTICLES;
@@ -249,7 +258,8 @@ export function KeynoteDashboard() {
             pageOgImages={pageOgImages}
             showViewsColumn
             sortKey={sortKey}
-            onSortChange={setSortKey}
+            sortAsc={sortAsc}
+            onSortChange={changeSort}
           />
           {hasMoreArticles ? (
             <div className="mt-4 flex justify-center">

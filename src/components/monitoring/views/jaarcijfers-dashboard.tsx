@@ -42,7 +42,7 @@ function buildBrandYtdRows(
   ytdYear: number | null,
   ytdPreviousYear: number | null,
   ytdThroughWeek: number | null
-): Record<string, string | number>[] {
+): Record<string, string | number | null>[] {
   if (ytdYear == null) return [];
 
   const sessionMap = new Map<string, number>();
@@ -81,12 +81,14 @@ function buildBrandYtdRows(
     const iso = toIsoYearIsoWeek(ytdYear, isoWeek);
     const prevIso =
       ytdPreviousYear != null ? toIsoYearIsoWeek(ytdPreviousYear, isoWeek) : null;
+    // Week 1 begint vaak in december en de lopende week is nog niet af: deelweken markeren.
+    const partial = isoWeek === 1 || isoWeek === ytdThroughWeek;
     return {
       weekKey: iso,
-      weekLabel: formatIsoYearIsoWeekAxis(iso),
+      weekLabel: `${formatIsoYearIsoWeekAxis(iso)}${partial ? "*" : ""}`,
       [brand]: sessionMap.get(iso) ?? 0,
-      [YTD_PRIOR_SESSIONS_DATAKEY]:
-        prevIso != null ? (prevMap.get(prevIso) ?? 0) : 0,
+      // Geen data (bv. Search Console bewaart maar 16 maanden) = gat in de lijn, geen 0.
+      [YTD_PRIOR_SESSIONS_DATAKEY]: prevIso != null ? (prevMap.get(prevIso) ?? null) : null,
     };
   });
 }
@@ -127,25 +129,36 @@ const METRIC_INFO: Record<JaarMetricKey, { unit: string; source: string }> = {
   nieuwsbrief: { unit: "sessies", source: "GA4 · sessies vanuit de nieuwsbrief (bron/medium/campagne)" },
 };
 
-function ytdTotals(
-  brand: SiteTitleLabel,
-  series: JaarMetricSeries,
-  ytdYear: number | null,
-  ytdPreviousYear: number | null
-): { current: number; previous: number } {
+/**
+ * Totalen t/m deze week, eerlijk vergeleken: alleen weken waarin béide jaren data hebben.
+ * Search Console bewaart 16 maanden, dus voor Discover/Organisch ontbreekt vorig jaar vaak de
+ * eerste helft; die weken tellen dan ook voor dit jaar niet mee in de vergelijking.
+ */
+function ytdTotals(rows: Record<string, string | number | null>[], brand: SiteTitleLabel) {
+  let total = 0;
   let current = 0;
   let previous = 0;
-  for (const r of series.rows) {
-    if (r.source !== brand) continue;
-    const p = parseIsoYearIsoWeek(normalizeIsoYearIsoWeek(r.isoYearIsoWeek) ?? "");
-    if (p && p.isoYear === ytdYear) current += r.sessions;
-  }
-  for (const r of series.rowsPrevious) {
-    if (r.source !== brand) continue;
-    const p = parseIsoYearIsoWeek(normalizeIsoYearIsoWeek(r.isoYearIsoWeek) ?? "");
-    if (p && p.isoYear === ytdPreviousYear) previous += r.sessions;
-  }
-  return { current, previous };
+  const matched: number[] = [];
+  rows.forEach((r, idx) => {
+    const cur = Number(r[brand] ?? 0);
+    total += cur;
+    const prev = r[YTD_PRIOR_SESSIONS_DATAKEY];
+    if (prev != null && Number(prev) > 0) {
+      current += cur;
+      previous += Number(prev);
+      matched.push(idx);
+    }
+  });
+  const weekOf = (idx: number | undefined) =>
+    idx == null ? null : parseIsoYearIsoWeek(String(rows[idx]?.weekKey ?? ""))?.isoWeek ?? null;
+  return {
+    total,
+    current,
+    previous,
+    matchedWeeks: matched.length,
+    allWeeks: rows.length,
+    firstMatchedWeek: weekOf(matched[0]),
+  };
 }
 
 function BrandYearCard({
@@ -182,7 +195,8 @@ function BrandYearCard({
   );
   const hasData = rows.some((r) => Number(r[brand] ?? 0) > 0);
   const showPriorYearLine = hasPriorYearData(brand, series.rowsPrevious, ytdPreviousYear);
-  const totals = ytdTotals(brand, series, ytdYear, ytdPreviousYear);
+  const totals = ytdTotals(rows, brand);
+  const partialCompare = totals.matchedWeeks > 0 && totals.matchedWeeks < totals.allWeeks;
   const change =
     totals.previous > 0 ? Math.round(((totals.current - totals.previous) / totals.previous) * 1000) / 10 : null;
   const fav = favIconUrl(brand);
@@ -204,7 +218,7 @@ function BrandYearCard({
       {hasData ? (
         <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-2xl font-semibold tabular-nums text-foreground">
-            {totals.current.toLocaleString("nl-NL")}
+            {totals.total.toLocaleString("nl-NL")}
           </span>
           <span className="text-xs text-muted-foreground">
             {info.unit} in {ytdYear} t/m deze week
@@ -220,8 +234,20 @@ function BrandYearCard({
               }`}
             >
               {change > 0 ? "+" : ""}
-              {change.toLocaleString("nl-NL")}% vs {ytdPreviousYear} (
-              {totals.previous.toLocaleString("nl-NL")})
+              {change.toLocaleString("nl-NL")}% vs {ytdPreviousYear}
+              {partialCompare ? ` (vanaf week ${totals.firstMatchedWeek})` : ""}
+            </span>
+          ) : null}
+          {partialCompare ? (
+            <span className="w-full text-[11px] text-muted-foreground">
+              Vergeleken over week {totals.firstMatchedWeek} t/m nu:{" "}
+              {totals.current.toLocaleString("nl-NL")} tegen{" "}
+              {totals.previous.toLocaleString("nl-NL")} in {ytdPreviousYear}. Van eerdere weken in{" "}
+              {ytdPreviousYear} is geen data
+              {metric === "discover" || metric === "organisch"
+                ? " (Search Console bewaart maar 16 maanden)"
+                : ""}
+              .
             </span>
           ) : null}
         </div>
@@ -249,6 +275,11 @@ function BrandYearCard({
           />
         </div>
       )}
+      {hasData ? (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          * Deelweek: week 1 begint deels in december, de lopende week is nog niet af.
+        </p>
+      ) : null}
     </section>
   );
 }

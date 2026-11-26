@@ -222,7 +222,8 @@ function absolutePageLocation(pageLocation: string, site: ResolvedSiteTitle): st
 }
 
 function buildUrlFromPagePath(origin: string, pagePath: string): string | undefined {
-  const path = pagePath.trim();
+  // Querystring/hash weg: anders worden tracking-parameters losse "pagina's" (en extreem lang).
+  const path = pagePath.trim().split(/[?#]/)[0] ?? "";
   if (!path || path === "(not set)") return undefined;
   if (path === "/") return `${origin}/`;
   const normalized = path.startsWith("/") ? path : `/${path}`;
@@ -781,6 +782,51 @@ export async function fetchGA4PageviewsForUrls(
   );
 
   return batches.flat();
+}
+
+/**
+ * Paginatitels voor een beperkt aantal paden (filter op pagePath), bv. voor artikelen waarvan we
+ * de HTML niet kunnen lezen. Klein gefilterd rapport, dus snel. Titel = variant met de meeste views.
+ */
+export async function fetchGA4TitlesForPaths(
+  accessToken: string,
+  titleId: string,
+  startDate: string,
+  endDate: string,
+  paths: string[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const site = titlesWithGa4().find((t) => t.id === titleId);
+  if (!site || !paths.length) return out;
+  const variants = [...new Set(paths.flatMap((p) => {
+    const noSlash = p.replace(/\/+$/, "") || "/";
+    return [noSlash, noSlash === "/" ? "/" : `${noSlash}/`];
+  }))].slice(0, 500);
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
+  const analyticsdata = google.analyticsdata({ version: "v1beta", auth });
+  try {
+    const { data } = await analyticsdata.properties.runReport({
+      property: `properties/${site.ga4PropertyId}`,
+      requestBody: {
+        dimensions: [{ name: "pagePath" }, { name: "pageTitle" }],
+        metrics: [{ name: "screenPageViews" }],
+        dateRanges: [{ startDate, endDate }],
+        dimensionFilter: { filter: { fieldName: "pagePath", inListFilter: { values: variants } } },
+        orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+        limit: "2000",
+      },
+    });
+    for (const row of data.rows ?? []) {
+      const key = agendaPathKey(row.dimensionValues?.[0]?.value ?? "");
+      const title = (row.dimensionValues?.[1]?.value ?? "").trim();
+      if (!key || !title || title === "(not set)" || out.has(key)) continue;
+      out.set(key, title);
+    }
+  } catch (err) {
+    console.error(`GA4 titels voor paden mislukt (${titleId}):`, err);
+  }
+  return out;
 }
 
 export interface GA4PathViewsRow {

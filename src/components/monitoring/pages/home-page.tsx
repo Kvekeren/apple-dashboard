@@ -22,7 +22,6 @@ import {
   SOURCE_LABELS,
 } from "@/lib/monitoring/shared";
 import { useFetchPageTitlesAndImages } from "@/lib/monitoring/use-fetch-page-meta";
-import { titleLabelFromPageUrl } from "@/lib/site-titles";
 
 export function HomePage() {
   const { gscConnected } = useMonitoringAuth();
@@ -84,14 +83,13 @@ export function HomePage() {
         }
       }
     } else {
+      // Zelfde samenvoeging (AMP/querystring, geen homepage) als de getoonde lijst.
       const map = topTenMetric === "gsc-discover" ? gscMap : gscSearchMap;
+      const bySource = aggregateGscTopUrlsBySource(map, SOURCE_LABELS, TOP_ARTICLES_MAX, (u) => u);
       for (const label of SOURCE_LABELS) {
-        const urls = Object.entries(map)
-          .filter(([url, v]) => titleLabelFromPageUrl(url) === label && v.clicks > 0)
-          .sort((a, b) => b[1].clicks - a[1].clicks)
-          .slice(0, topArticlesVisible)
-          .map(([url]) => url);
-        out.push(...urls);
+        for (const row of (bySource[label] ?? []).slice(0, topArticlesVisible)) {
+          out.push(row.url);
+        }
       }
     }
     return out;

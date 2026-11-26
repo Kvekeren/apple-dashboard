@@ -32,8 +32,9 @@ export function ConversiePage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">Conversies</h1>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Per artikel: sessies, uitklikken, affiliate-klikken, sales en omzet uit GA4, net als de
-              export &quot;Conversies per pagina&quot;. Sorteer op elke kolom of download als CSV.
+              {view === "artikelen"
+                ? "Per artikel: sessies, uitklikken, affiliate-klikken, sales en omzet uit GA4, net als de export “Conversies per pagina”. Sorteer op elke kolom of download als CSV."
+                : "Events, funnels en KPI's per merk: clicks, engagement, affiliate, advertenties en leads."}
             </p>
           </div>
           <SegmentSwitch value={view} onChange={setView} options={VIEWS} ariaLabel="Weergave" />

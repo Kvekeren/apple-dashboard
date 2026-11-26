@@ -363,27 +363,35 @@ export async function fetchDiscoverTotals(
   return results;
 }
 
-export function getDateRange(days: number): { startDate: string; endDate: string } {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - days);
-  return {
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10),
-  };
+/** Datum (yyyy-MM-dd) in Nederlandse tijd, `offsetDays` dagen vanaf vandaag. */
+export function amsterdamDateOffset(offsetDays: number): string {
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Amsterdam",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const d = new Date(`${today}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
 }
 
+/**
+ * "Laatste N dagen" = precies N volledige dagen t/m gisteren (Nederlandse tijd).
+ * Vandaag zit er bewust niet in: GA4/GSC-cijfers van vandaag zijn nog onvolledig.
+ */
+export function getDateRange(days: number): { startDate: string; endDate: string } {
+  return { startDate: amsterdamDateOffset(-days), endDate: amsterdamDateOffset(-1) };
+}
+
+/** Even lange periode die `offsetDays` dagen eerder eindigt (bv. de vorige N dagen). */
 export function getDateRangeOffset(
   days: number,
   offsetDays: number
 ): { startDate: string; endDate: string } {
-  const end = new Date();
-  end.setDate(end.getDate() - offsetDays);
-  const start = new Date(end);
-  start.setDate(start.getDate() - days);
   return {
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10),
+    startDate: amsterdamDateOffset(-days - offsetDays),
+    endDate: amsterdamDateOffset(-1 - offsetDays),
   };
 }
 

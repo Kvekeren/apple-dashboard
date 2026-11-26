@@ -16,7 +16,7 @@ import type { SiteTitleLabel } from "@/lib/site-titles";
 import { parseIsoYearIsoWeek } from "@/lib/iso-week-range";
 
 export type YtdSessionsChartProps = {
-  data: Record<string, string | number>[];
+  data: Record<string, string | number | null>[];
   brandFilter: "all" | SiteTitleLabel;
   barKeys: SiteTitleLabel[];
   showPriorYearLine: boolean;
@@ -48,10 +48,15 @@ export function YtdSessionsChart({
           height={52}
           interval={0}
         />
-        <YAxis tick={{ fill: "var(--fnl-ink-3)", fontSize: 11 }} />
+        <YAxis
+          tick={{ fill: "var(--fnl-ink-3)", fontSize: 11 }}
+          tickFormatter={(v) => Number(v).toLocaleString("nl-NL")}
+          width={64}
+        />
         <Tooltip
           formatter={(value, name) => {
-            const v = value as number | string | undefined;
+            const v = value as number | string | undefined | null;
+            if (v == null) return ["geen data", String(name ?? "")];
             const num = typeof v === "number" ? v : Number(v ?? 0);
             return [
               Number.isFinite(num) ? num.toLocaleString("nl-NL") : String(v ?? ""),
