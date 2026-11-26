@@ -22,9 +22,9 @@ import {
 import { getCached, setCached, TTL } from "@/lib/api-cache";
 import { getGoogleAccessToken } from "@/lib/google-access-token";
 import type { ConversionSummaryPayload } from "@/lib/conversion-types";
-import { getTitleById, type SiteTitleId } from "@/lib/site-titles";
+import { getTitleById, listTitleIdsInOrder, type SiteTitleId } from "@/lib/site-titles";
 
-const VALID_BRANDS: SiteTitleId[] = ["icreate", "iphoned", "iculture"];
+const VALID_BRANDS: SiteTitleId[] = listTitleIdsInOrder();
 const VALID_GROUPS: ConversionGroupFilterId[] = [
   "all",
   "engagement",

@@ -1,5 +1,6 @@
-import { AgendaPage } from "@/components/monitoring/pages/agenda-page";
+import { redirect } from "next/navigation";
 
+/** De Agenda-tab is vervangen door Artikelen. */
 export default function Page() {
-  return <AgendaPage />;
+  redirect("/artikelen");
 }

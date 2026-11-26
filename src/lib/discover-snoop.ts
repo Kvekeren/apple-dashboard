@@ -62,7 +62,13 @@ export type IdeeenApiPayload = {
 
 export type IdeeenVisibleKey = `${IdeeenCategoryKey}-nl` | `${IdeeenCategoryKey}-worldwide`;
 
-const OWN_HOST_SUFFIXES = ["icreatemagazine.nl", "iphoned.nl", "iculture.nl"];
+const OWN_HOST_SUFFIXES = [
+  "icreatemagazine.nl",
+  "iphoned.nl",
+  "iculture.nl",
+  "androidplanet.nl",
+  "androidworld.nl",
+];
 
 export function ownTitleLabelFromArticle(
   article: Pick<DiscoverSnoopArticle, "url" | "publisher_url">

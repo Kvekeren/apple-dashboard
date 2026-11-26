@@ -21,11 +21,11 @@ export const MONITORING_NAV: {
   requiresAuth?: boolean;
 }[] = [
   { href: "/", label: "Home" },
-  { href: "/agenda", label: "Agenda" },
+  { href: "/artikelen", label: "Artikelen", requiresAuth: true },
   { href: "/ideeen", label: "Ideeën" },
   { href: "/jaarcijfers", label: "Jaarcijfers", requiresAuth: true },
   { href: "/conversie", label: "Conversies", requiresAuth: true },
-  { href: "/keynote", label: "Keynote", requiresAuth: true },
+  { href: "/keynote", label: "Vorig jaar", requiresAuth: true },
 ];
 
 export const TOP_ARTICLES_INITIAL = 5;
@@ -64,6 +64,8 @@ export const LINE_COLORS: Record<string, string> = {
   iCreate: "#004077",
   iPhoned: "#F97D23",
   iCulture: "#5c7a94",
+  "Android Planet": "#1f9d55",
+  Androidworld: "#8a6d00",
 };
 
 export const CIJFERS_RANGE_QS = "days=7";
@@ -132,6 +134,8 @@ export function primaryDomain(label: string): string | undefined {
     icreate: "icreatemagazine.nl",
     iphoned: "iphoned.nl",
     iculture: "iculture.nl",
+    androidplanet: "androidplanet.nl",
+    androidworld: "androidworld.nl",
   };
   return map[row.id];
 }

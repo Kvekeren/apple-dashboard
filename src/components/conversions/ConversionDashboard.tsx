@@ -15,11 +15,7 @@ import type {
 } from "@/lib/conversion-types";
 import type { SiteTitleId } from "@/lib/site-titles";
 
-const BRAND_TABS: { id: SiteTitleId; label: string }[] = [
-  { id: "icreate", label: "iCreate" },
-  { id: "iphoned", label: "iPhoned" },
-  { id: "iculture", label: "iCulture" },
-];
+import { BRAND_TAB_ITEMS as BRAND_TABS } from "@/components/monitoring/brand-tabs";
 
 export function ConversionDashboard() {
   const [activeBrand, setActiveBrand] = useState<SiteTitleId>("icreate");
@@ -32,10 +28,8 @@ export function ConversionDashboard() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Conversies</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Inzicht in conversies, clicks, engagement, affiliate, advertenties en leads per
-          Apple-merk.
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          Events, funnels en KPI&apos;s per merk: clicks, engagement, affiliate, advertenties en leads.
         </p>
         <div className="mt-4 space-y-3">
           <ConversionPeriodFilter
@@ -56,7 +50,7 @@ export function ConversionDashboard() {
         </div>
       </header>
 
-      <div className="fnl-segment w-full max-w-lg" role="tablist" aria-label="Merk">
+      <div className="fnl-segment max-w-full overflow-x-auto" role="tablist" aria-label="Merk">
         {BRAND_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -64,7 +58,7 @@ export function ConversionDashboard() {
             role="tab"
             aria-selected={activeBrand === tab.id}
             data-active={activeBrand === tab.id ? "true" : "false"}
-            className="fnl-segment-item flex-1 px-4 py-2 text-sm font-medium"
+            className="fnl-segment-item shrink-0 px-4 py-2 text-sm font-medium whitespace-nowrap"
             onClick={() => setActiveBrand(tab.id)}
           >
             {tab.label}

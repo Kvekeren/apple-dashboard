@@ -1,13 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 
-import { WWDC_TOP_ARTICLES_MAX, type WwdcPeriodKey } from "@/config/wwdc";
+import { WWDC_TOP_ARTICLES_MAX } from "@/config/wwdc";
 import {
-  KEYNOTE_2025,
+  isKeynotePeriod,
   KEYNOTE_PERIOD_LABELS,
-  keynotePeriodDates,
+  keynotePeriodRange,
   type KeynotePeriodKey,
 } from "@/config/keynote";
+import type { KeynoteDashboardPayload } from "@/lib/keynote-client-cache";
 import { getWwdcCached, setWwdcCached } from "@/lib/wwdc-cache";
 import { getGoogleAccessToken } from "@/lib/google-access-token";
 import { fetchDiscoverData, fetchSearchData } from "@/lib/search-console";
@@ -21,11 +22,8 @@ import {
 } from "@/lib/wwdc-traffic";
 
 const VALID_BRANDS = new Set<SiteTitleId>(listTitleIdsInOrder());
-const VALID_PERIODS = new Set<KeynotePeriodKey>(["weekBefore", "startWwdc", "afterWwdc"]);
-
 function parsePeriod(raw: string | null): KeynotePeriodKey {
-  if (raw && VALID_PERIODS.has(raw as KeynotePeriodKey)) return raw as KeynotePeriodKey;
-  return "weekBefore";
+  return isKeynotePeriod(raw) ? raw : "thisWeek";
 }
 
 function parseBrand(raw: string | null): SiteTitleId | null {
@@ -37,20 +35,12 @@ export async function GET(request: NextRequest) {
   const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
   const period = parsePeriod(request.nextUrl.searchParams.get("period"));
   const brand = parseBrand(request.nextUrl.searchParams.get("brand"));
-  const { startDate, endDate } = keynotePeriodDates(period);
-  const cacheKey = `keynote-${KEYNOTE_2025.year}-v1-top${WWDC_TOP_ARTICLES_MAX}-${period}-${brand ?? "all"}`;
+  const { startDate, endDate, isoWeek, isoWeekYear } = keynotePeriodRange(period);
+  // Historische week: data verandert niet meer, dus cache op de datums zelf.
+  const cacheKey = `vorigjaar-v1-top${WWDC_TOP_ARTICLES_MAX}-${startDate}-${brand ?? "all"}`;
 
   if (!forceRefresh) {
-    const cached = await getWwdcCached<{
-      meta: {
-        year: 2025;
-        startDate: string;
-        endDate: string;
-        period: WwdcPeriodKey;
-        periodLabel: string;
-      };
-      byBrand: Record<SiteTitleId, WwdcArticleTrafficRow[]>;
-    }>(cacheKey);
+    const cached = await getWwdcCached<KeynoteDashboardPayload>(cacheKey);
     if (cached) {
       return NextResponse.json(cached, {
         headers: { "X-Keynote-Cache": "hit" },
@@ -95,11 +85,12 @@ export async function GET(request: NextRequest) {
       })
     ) as Record<SiteTitleId, WwdcArticleTrafficRow[]>;
 
-    const payload = {
+    const payload: KeynoteDashboardPayload = {
       meta: {
-        year: KEYNOTE_2025.year,
         startDate,
         endDate,
+        isoWeek,
+        isoWeekYear,
         period,
         periodLabel: KEYNOTE_PERIOD_LABELS[period],
       },
@@ -112,6 +103,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("Keynote traffic error:", err);
-    return NextResponse.json({ error: "Keynote-data ophalen mislukt" }, { status: 500 });
+    return NextResponse.json({ error: "Data van vorig jaar ophalen mislukt" }, { status: 500 });
   }
 }

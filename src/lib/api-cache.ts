@@ -8,8 +8,11 @@ function safeKey(key: string): string {
   return key.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
+/** Verhoog bij een andere merkenset (site-titles) zodat oude caches zonder die merken vervallen. */
+const BRAND_SET_VERSION = "b5";
+
 function getCachePath(key: string): string {
-  return path.join(CACHE_DIR, `cache-${safeKey(key)}.json`);
+  return path.join(CACHE_DIR, `cache-${BRAND_SET_VERSION}-${safeKey(key)}.json`);
 }
 
 export async function getCached<T>(
@@ -42,6 +45,8 @@ export async function setCached(key: string, data: unknown): Promise<void> {
 }
 
 export const TTL = {
+  MINUTES_30: 30 * 60 * 1000,
   HOURS_2: 2 * 60 * 60 * 1000,
+  HOURS_6: 6 * 60 * 60 * 1000,
   HOURS_24: 24 * 60 * 60 * 1000,
 } as const;

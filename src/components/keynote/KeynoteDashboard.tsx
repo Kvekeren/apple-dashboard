@@ -12,10 +12,12 @@ import {
   useWwdcPageImages,
 } from "@/components/wwdc/use-wwdc-page-images";
 import {
-  KEYNOTE_2025,
   KEYNOTE_PERIOD_LABELS,
+  keynotePeriodRange,
   type KeynotePeriodKey,
 } from "@/config/keynote";
+import { BrandTabs } from "@/components/monitoring/brand-tabs";
+import type { WwdcSortKey } from "@/components/wwdc/WwdcArticlesTable";
 import { WWDC_TOP_ARTICLES, WWDC_TOP_ARTICLES_MAX } from "@/config/wwdc";
 import {
   clearKeynoteClientCache,
@@ -27,17 +29,7 @@ import {
 import { clearWwdcPageMetaCache } from "@/lib/wwdc-page-meta-cache";
 import type { SiteTitleId } from "@/lib/site-titles";
 
-const BRAND_TABS: { id: SiteTitleId; label: string }[] = [
-  { id: "icreate", label: "iCreate" },
-  { id: "iphoned", label: "iPhoned" },
-  { id: "iculture", label: "iCulture" },
-];
-
-const PERIOD_TABS: { id: KeynotePeriodKey; label: string }[] = [
-  { id: "weekBefore", label: KEYNOTE_PERIOD_LABELS.weekBefore },
-  { id: "startWwdc", label: KEYNOTE_PERIOD_LABELS.startWwdc },
-  { id: "afterWwdc", label: KEYNOTE_PERIOD_LABELS.afterWwdc },
-];
+const PERIOD_TABS: KeynotePeriodKey[] = ["prevWeek", "thisWeek", "nextWeek"];
 
 function formatPeriod(start: string, end: string): string {
   const startFmt = format(parseISO(start), "d MMMM", { locale: nl });
@@ -58,13 +50,13 @@ function collectKeynoteArticleUrls(): string[] {
 }
 
 export function KeynoteDashboard() {
-  const config = KEYNOTE_2025;
   const [activeBrand, setActiveBrand] = useState<SiteTitleId>("icreate");
-  const [period, setPeriod] = useState<KeynotePeriodKey>("weekBefore");
+  const [period, setPeriod] = useState<KeynotePeriodKey>("thisWeek");
+  const [sortKey, setSortKey] = useState<WwdcSortKey>("pageviews");
   const [data, setData] = useState<KeynoteDashboardPayload | null>(() =>
-    readKeynoteClientCache("weekBefore")
+    readKeynoteClientCache("thisWeek")
   );
-  const [loading, setLoading] = useState(() => !readKeynoteClientCache("weekBefore"));
+  const [loading, setLoading] = useState(() => !readKeynoteClientCache("thisWeek"));
   const [error, setError] = useState<string | null>(null);
   const [showAllArticles, setShowAllArticles] = useState(false);
   const prefetchStarted = useRef(false);
@@ -186,7 +178,9 @@ export function KeynoteDashboard() {
     return () => window.removeEventListener("keynote-refresh", onRefresh);
   }, [fetchPeriod, period, prefetchAllPeriods]);
 
-  const allRows = data?.byBrand[activeBrand] ?? [];
+  const allRows = [...(data?.byBrand[activeBrand] ?? [])].sort(
+    (a, b) => b[sortKey] - a[sortKey] || b.pageviews - a.pageviews
+  );
   const articleLimit = showAllArticles ? WWDC_TOP_ARTICLES_MAX : WWDC_TOP_ARTICLES;
   const rows = allRows.slice(0, articleLimit);
   const hasMoreArticles = !showAllArticles && allRows.length > WWDC_TOP_ARTICLES;
@@ -197,60 +191,39 @@ export function KeynoteDashboard() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Keynote</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Vorig jaar</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Analyse van best presterende artikelen rond het iPhone-event van{" "}
-          {format(parseISO(config.startDate), "d MMMM yyyy", { locale: nl })}: week vóór keynote (
-          {format(parseISO(config.weekBeforeStart), "d MMMM", { locale: nl })} –{" "}
-          {format(parseISO(config.weekBeforeEnd), "d MMMM", { locale: nl })}), start keynote (
-          {format(parseISO(config.startDate), "d MMMM yyyy", { locale: nl })}) en na keynote (
-          {format(parseISO(config.afterStart), "d MMMM", { locale: nl })} –{" "}
-          {format(parseISO(config.afterEnd), "d MMMM yyyy", { locale: nl })}). Gesorteerd op
-          GA4-pageviews, met verkeersbron per kanaal. Discover en Google Search komen uit Search
-          Console (clicks); nieuwsbrief = GA4 views per paginapad, incl. sessiebronnen zoals
-          nieuwsbrief_ic, nieuwsbrief_ip en nieuwsbrief_iculture.
+          Wat deed het goed in dezelfde week vorig jaar? Kies de week geleden, de huidige of de
+          volgende week; je ziet dan de best presterende artikelen uit hetzelfde weeknummer een jaar
+          eerder (maandag t/m zondag). Discover en Google Search zijn klikken uit Search Console,
+          nieuwsbrief zijn GA4-weergaven via nieuwsbriefsessies, weergaven zijn alle GA4-pageviews.
+          Klik op een kolomkop om daarop te sorteren.
         </p>
-        {data?.meta ? (
-          <p className="mt-2 text-sm font-medium text-foreground">
-            Periode: {formatPeriod(data.meta.startDate, data.meta.endDate)}
-            <span className="ml-2 font-normal text-muted-foreground">({data.meta.periodLabel})</span>
-          </p>
-        ) : null}
       </header>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="fnl-segment w-full max-w-xl" role="tablist" aria-label="Periode">
-          {PERIOD_TABS.map((tab) => (
+      <div className="fnl-segment w-full max-w-2xl" role="tablist" aria-label="Week">
+        {PERIOD_TABS.map((id) => {
+          const range = keynotePeriodRange(id);
+          return (
             <button
-              key={tab.id}
+              key={id}
               type="button"
               role="tab"
-              aria-selected={period === tab.id}
-              data-active={period === tab.id ? "true" : "false"}
-              className="fnl-segment-item flex-1 px-3 py-2 text-xs font-medium sm:text-sm"
-              onClick={() => setPeriod(tab.id)}
+              aria-selected={period === id}
+              data-active={period === id ? "true" : "false"}
+              className="fnl-segment-item flex flex-1 flex-col items-center px-3 py-1.5 leading-tight"
+              onClick={() => setPeriod(id)}
             >
-              {tab.label}
+              <span className="text-xs font-semibold sm:text-sm">{KEYNOTE_PERIOD_LABELS[id]}</span>
+              <span className="text-[11px] font-normal text-muted-foreground">
+                week {range.isoWeek} · {formatPeriod(range.startDate, range.endDate)}
+              </span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      <div className="fnl-segment w-full max-w-lg" role="tablist" aria-label="Merk">
-        {BRAND_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={activeBrand === tab.id}
-            data-active={activeBrand === tab.id ? "true" : "false"}
-            className="fnl-segment-item flex-1 px-4 py-2 text-sm font-medium"
-            onClick={() => setActiveBrand(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <BrandTabs value={activeBrand} onChange={setActiveBrand} />
 
       {loading ? (
         <div className="py-16 text-center text-sm text-muted-foreground">Laden…</div>
@@ -271,7 +244,13 @@ export function KeynoteDashboard() {
               </span>
             ) : null}
           </h2>
-          <WwdcArticlesTable rows={rows} pageOgImages={pageOgImages} />
+          <WwdcArticlesTable
+            rows={rows}
+            pageOgImages={pageOgImages}
+            showViewsColumn
+            sortKey={sortKey}
+            onSortChange={setSortKey}
+          />
           {hasMoreArticles ? (
             <div className="mt-4 flex justify-center">
               <Button

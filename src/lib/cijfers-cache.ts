@@ -3,7 +3,7 @@ import { existsSync } from "fs";
 import path from "path";
 
 const CACHE_DIR = process.env.VERCEL ? "/tmp" : path.join(process.cwd(), "data");
-const CACHE_BASE = path.join(CACHE_DIR, "cijfers-cache");
+const CACHE_BASE = path.join(CACHE_DIR, "cijfers-cache-b5");
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 uur
 
 export interface CachedCijfers {

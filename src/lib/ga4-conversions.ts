@@ -542,24 +542,33 @@ export const AFFILIATE_EVENT_NAMES: Record<SiteTitleId, string[]> = {
   ],
   iphoned: ["wct_click", "uitklikken"],
   iculture: ["wct_click", "uitklikken"],
+  androidplanet: ["wct_click", "uitklikken"],
+  androidworld: ["wct_click", "uitklikken"],
 };
 
+/** BigSpark-titels sturen scroll_25/50/75/90; scroll_75 = "pagina grotendeels gelezen". */
 export const SCROLL_EVENT_NAMES: Record<SiteTitleId, string[]> = {
   icreate: ["25% scroll", "50% scroll", "75% scroll", "90% scroll", "read_article_end"],
-  iphoned: ["scroll"],
-  iculture: ["scroll"],
+  iphoned: ["scroll_75"],
+  iculture: ["scroll_75"],
+  androidplanet: ["scroll_75"],
+  androidworld: ["scroll_75"],
 };
 
 export const INTERNAL_CLICK_NAMES: Record<SiteTitleId, string[]> = {
   icreate: [],
   iphoned: ["doorklikken", "click", "filters"],
   iculture: ["doorklikken", "click"],
+  androidplanet: ["doorklikken", "click", "filters"],
+  androidworld: ["doorklikken", "click", "filters"],
 };
 
 export const OUTBOUND_CLICK_NAMES: Record<SiteTitleId, string[]> = {
   icreate: [],
   iphoned: ["uitklikken"],
   iculture: ["uitklikken"],
+  androidplanet: ["uitklikken"],
+  androidworld: ["uitklikken"],
 };
 
 export const LEAD_EVENT_NAMES: Record<SiteTitleId, string[]> = {
@@ -571,6 +580,8 @@ export const LEAD_EVENT_NAMES: Record<SiteTitleId, string[]> = {
   ],
   iphoned: [],
   iculture: ["form_submit"],
+  androidplanet: [],
+  androidworld: [],
 };
 
 export const PAYWALL_CLICK_NAMES: Record<SiteTitleId, string[]> = {
@@ -581,6 +592,8 @@ export const PAYWALL_CLICK_NAMES: Record<SiteTitleId, string[]> = {
   ],
   iphoned: [],
   iculture: [],
+  androidplanet: [],
+  androidworld: [],
 };
 
 export function conversionEventGroupForName(

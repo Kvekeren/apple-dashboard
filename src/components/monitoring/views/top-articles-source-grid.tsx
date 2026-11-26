@@ -12,6 +12,7 @@ import {
   type WeeklyTopArticleRow,
 } from "@/lib/monitoring/shared";
 import { badgeClassForLabel } from "@/lib/site-titles";
+import { BrandScrollRow } from "@/components/monitoring/views/brand-scroll-row";
 
 export function TopArticlesSourceGrid({
   weeklyTopAllBySource,
@@ -39,7 +40,7 @@ export function TopArticlesSourceGrid({
 
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <BrandScrollRow ariaLabel="Meest gelezen artikelen per titel">
         {SOURCE_LABELS.map((src) => {
           const lacksGa4 =
             showGa4Warning && siteCfg?.some((c) => c.label === src && !c.hasGa4Property);
@@ -47,7 +48,7 @@ export function TopArticlesSourceGrid({
           const rows = allRows.slice(0, topArticlesVisible);
           const fav = favIconUrl(src);
           return (
-            <div key={src} className="fnl-card-hover flex flex-col p-4">
+            <div key={src} className="fnl-card-hover flex w-full flex-col p-4">
               <div className="flex flex-col items-center border-b border-border pb-2.5">
                 {fav ? <img alt="" src={fav} className="mb-1.5 size-8 rounded-[8px]" /> : null}
                 <Badge variant="outline" className={badgeClassForLabel(src)}>
@@ -121,7 +122,7 @@ export function TopArticlesSourceGrid({
             </div>
           );
         })}
-      </div>
+      </BrandScrollRow>
       {hasMoreTopArticles ? (
         <div className="mt-4 flex justify-center">
           <Button

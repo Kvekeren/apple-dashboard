@@ -5,73 +5,66 @@ import { useCallback, useEffect, useState } from "react";
 import { MonitoringAuthGate } from "@/components/monitoring/auth-gate";
 import { useMonitoringAuth } from "@/components/monitoring/monitoring-shell";
 import { useRegisterPageRefresh } from "@/components/monitoring/monitoring-refresh-context";
-import { JaarcijfersDashboard } from "@/components/monitoring/views/jaarcijfers-dashboard";
 import {
-  gscClicksRowsToYtdWeekly,
-  type YtdWeeklySessionRow,
-} from "@/lib/monitoring/shared";
+  JaarcijfersDashboard,
+  type JaarMetricKey,
+  type JaarMetricSeries,
+} from "@/components/monitoring/views/jaarcijfers-dashboard";
+import { gscClicksRowsToYtdWeekly } from "@/lib/monitoring/shared";
+
+const EMPTY: JaarMetricSeries = { rows: [], rowsPrevious: [] };
+const EMPTY_ALL: Record<JaarMetricKey, JaarMetricSeries> = {
+  pageviews: EMPTY,
+  discover: EMPTY,
+  organisch: EMPTY,
+  nieuwsbrief: EMPTY,
+};
 
 export function JaarcijfersPage() {
   const { gscConnected } = useMonitoringAuth();
-  const [pageviewsRows, setPageviewsRows] = useState<YtdWeeklySessionRow[]>([]);
-  const [pageviewsRowsPrev, setPageviewsRowsPrev] = useState<YtdWeeklySessionRow[]>([]);
-  const [discoverRows, setDiscoverRows] = useState<YtdWeeklySessionRow[]>([]);
-  const [discoverRowsPrev, setDiscoverRowsPrev] = useState<YtdWeeklySessionRow[]>([]);
-  const [searchRows, setSearchRows] = useState<YtdWeeklySessionRow[]>([]);
-  const [searchRowsPrev, setSearchRowsPrev] = useState<YtdWeeklySessionRow[]>([]);
+  const [series, setSeries] = useState<Record<JaarMetricKey, JaarMetricSeries>>(EMPTY_ALL);
   const [ytdPreviousYear, setYtdPreviousYear] = useState<number | null>(null);
   const [ytdYear, setYtdYear] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const loadAll = useCallback(async (ref = false) => {
-    const ga4Url = ref ? "/api/ga4-ytd-sessions?refresh=1" : "/api/ga4-ytd-sessions";
-    const gscUrl = ref ? "/api/gsc-ytd-clicks?refresh=1" : "/api/gsc-ytd-clicks";
-
-    const clearAll = () => {
-      setPageviewsRows([]);
-      setPageviewsRowsPrev([]);
-      setDiscoverRows([]);
-      setDiscoverRowsPrev([]);
-      setSearchRows([]);
-      setSearchRowsPrev([]);
-      setYtdPreviousYear(null);
-      setYtdYear(null);
-    };
-
+    const q = ref ? "?refresh=1" : "";
+    setLoading(true);
     try {
       const [ga4Res, gscRes] = await Promise.all([
-        fetch(ga4Url, { credentials: "include" }),
-        fetch(gscUrl, { credentials: "include" }),
+        fetch(`/api/ga4-ytd-sessions${q}`, { credentials: "include" }),
+        fetch(`/api/gsc-ytd-clicks${q}`, { credentials: "include" }),
       ]);
+      const next: Record<JaarMetricKey, JaarMetricSeries> = { ...EMPTY_ALL };
 
       if (ga4Res.ok) {
         const j = await ga4Res.json();
-        setPageviewsRows(j.rows ?? []);
-        setPageviewsRowsPrev(j.rowsPreviousYear ?? []);
-        setYtdPreviousYear(j.meta?.previousYear ?? null);
-        setYtdYear(j.meta?.year ?? null);
-      } else {
-        setPageviewsRows([]);
-        setPageviewsRowsPrev([]);
+        next.pageviews = { rows: j.rows ?? [], rowsPrevious: j.rowsPreviousYear ?? [] };
+        next.nieuwsbrief = {
+          rows: j.newsletter?.rows ?? [],
+          rowsPrevious: j.newsletter?.rowsPreviousYear ?? [],
+        };
+        if (j.meta?.year != null) setYtdYear(j.meta.year);
+        if (j.meta?.previousYear != null) setYtdPreviousYear(j.meta.previousYear);
       }
-
       if (gscRes.ok) {
         const g = await gscRes.json();
-        setDiscoverRows(gscClicksRowsToYtdWeekly(g.discover?.rows ?? []));
-        setDiscoverRowsPrev(gscClicksRowsToYtdWeekly(g.discover?.rowsPreviousYear ?? []));
-        setSearchRows(gscClicksRowsToYtdWeekly(g.search?.rows ?? []));
-        setSearchRowsPrev(gscClicksRowsToYtdWeekly(g.search?.rowsPreviousYear ?? []));
+        next.discover = {
+          rows: gscClicksRowsToYtdWeekly(g.discover?.rows ?? []),
+          rowsPrevious: gscClicksRowsToYtdWeekly(g.discover?.rowsPreviousYear ?? []),
+        };
+        next.organisch = {
+          rows: gscClicksRowsToYtdWeekly(g.search?.rows ?? []),
+          rowsPrevious: gscClicksRowsToYtdWeekly(g.search?.rowsPreviousYear ?? []),
+        };
         if (g.meta?.year != null) setYtdYear(g.meta.year);
         if (g.meta?.previousYear != null) setYtdPreviousYear(g.meta.previousYear);
-      } else {
-        setDiscoverRows([]);
-        setDiscoverRowsPrev([]);
-        setSearchRows([]);
-        setSearchRowsPrev([]);
       }
-
-      if (!ga4Res.ok && !gscRes.ok) clearAll();
+      setSeries(next);
     } catch {
-      clearAll();
+      setSeries(EMPTY_ALL);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -86,14 +79,10 @@ export function JaarcijfersPage() {
   return (
     <MonitoringAuthGate>
       <JaarcijfersDashboard
-        pageviewsRows={pageviewsRows}
-        pageviewsRowsPrevious={pageviewsRowsPrev}
-        discoverRows={discoverRows}
-        discoverRowsPrevious={discoverRowsPrev}
-        searchRows={searchRows}
-        searchRowsPrevious={searchRowsPrev}
+        series={series}
         ytdPreviousYear={ytdPreviousYear}
         ytdYear={ytdYear}
+        loading={loading}
       />
     </MonitoringAuthGate>
   );

@@ -15,6 +15,8 @@ import type { WwdcArticleTrafficRow } from "@/lib/wwdc-traffic";
 
 type ChannelKey = "discover" | "googleSearch" | "newsletter";
 
+export type WwdcSortKey = ChannelKey | "pageviews";
+
 const CHANNEL_LABELS: Record<ChannelKey, string> = {
   discover: "Discover (GSC)",
   googleSearch: "Google Search (GSC)",
@@ -39,12 +41,48 @@ function formatViews(n: number): string {
   return n > 0 ? n.toLocaleString("nl-NL") : "—";
 }
 
+function SortableHead({
+  label,
+  column,
+  sortKey,
+  onSortChange,
+}: {
+  label: string;
+  column: WwdcSortKey;
+  sortKey?: WwdcSortKey;
+  onSortChange?: (k: WwdcSortKey) => void;
+}) {
+  if (!onSortChange) return <>{label}</>;
+  const active = sortKey === column;
+  return (
+    <button
+      type="button"
+      onClick={() => onSortChange(column)}
+      aria-sort={active ? "descending" : undefined}
+      className={`inline-flex items-center justify-end gap-1 text-right hover:text-primary ${active ? "font-semibold text-primary" : ""}`}
+    >
+      {label}
+      <span aria-hidden className={active ? "opacity-100" : "opacity-30"}>
+        ↓
+      </span>
+    </button>
+  );
+}
+
 export function WwdcArticlesTable({
   rows,
   pageOgImages,
+  showViewsColumn = false,
+  sortKey,
+  onSortChange,
 }: {
   rows: WwdcArticleTrafficRow[];
   pageOgImages: Record<string, string>;
+  /** Extra kolom "Weergaven" (totaal GA4-pageviews). */
+  showViewsColumn?: boolean;
+  /** Maakt kolomkoppen klikbaar (aflopend sorteren). */
+  sortKey?: WwdcSortKey;
+  onSortChange?: (k: WwdcSortKey) => void;
 }) {
   if (rows.length === 0) {
     return (
@@ -70,12 +108,27 @@ export function WwdcArticlesTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="min-w-[280px]">Artikel</TableHead>
+            <TableHead className="min-w-[260px]">Artikel</TableHead>
             {(Object.keys(CHANNEL_LABELS) as ChannelKey[]).map((key) => (
-              <TableHead key={key} className="w-[120px] text-right">
-                {CHANNEL_LABELS[key]}
+              <TableHead key={key} className="w-[110px] text-right text-xs whitespace-normal">
+                <SortableHead
+                  label={CHANNEL_LABELS[key]}
+                  column={key}
+                  sortKey={sortKey}
+                  onSortChange={onSortChange}
+                />
               </TableHead>
             ))}
+            {showViewsColumn ? (
+              <TableHead className="w-[110px] text-right text-xs whitespace-normal">
+                <SortableHead
+                  label="Weergaven"
+                  column="pageviews"
+                  sortKey={sortKey}
+                  onSortChange={onSortChange}
+                />
+              </TableHead>
+            ) : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -121,12 +174,14 @@ export function WwdcArticlesTable({
                             <span className="line-clamp-3">{row.pageTitle}</span>
                             <ExternalLink className="mt-0.5 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-60" />
                           </a>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
-                            {row.pageviews.toLocaleString("nl-NL")}
-                            <span className="ml-1 text-[11px] font-normal text-muted-foreground">
-                              pageviews
-                            </span>
-                          </p>
+                          {showViewsColumn ? null : (
+                            <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                              {row.pageviews.toLocaleString("nl-NL")}
+                              <span className="ml-1 text-[11px] font-normal text-muted-foreground">
+                                pageviews
+                              </span>
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -145,6 +200,11 @@ export function WwdcArticlesTable({
                     </TableCell>
                   );
                 })}
+                {showViewsColumn ? (
+                  <TableCell className="text-right align-middle text-sm font-semibold tabular-nums text-foreground">
+                    {formatViews(row.pageviews)}
+                  </TableCell>
+                ) : null}
               </TableRow>
             );
           })}

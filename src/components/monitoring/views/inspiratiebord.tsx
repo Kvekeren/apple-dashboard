@@ -67,7 +67,9 @@ function InspiratieCard({
   displayTitle,
   pinned,
   onTogglePin,
+  large = false,
 }: {
+  large?: boolean;
   card: BoardCard;
   /** Live titel (og:title); overschrijft card.title zodra meta binnen is. */
   displayTitle?: string;
@@ -89,24 +91,28 @@ function InspiratieCard({
           href={card.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block w-[156px] shrink-0 sm:w-[168px]"
+          className={`block shrink-0 ${large ? "w-[132px] sm:w-[220px]" : "w-[156px] sm:w-[168px]"}`}
         >
           <img
             src={card.image}
             alt=""
             loading="lazy"
             referrerPolicy="no-referrer"
-            className="aspect-video w-full object-cover bg-muted"
+            className={`w-full object-cover bg-muted ${large ? "aspect-[16/10] h-full" : "aspect-video"}`}
           />
         </a>
       ) : (
         <div
-          className="aspect-video w-[156px] shrink-0 bg-gradient-to-br from-[var(--fnl-blue-soft)] to-[#b8cfe0] sm:w-[168px]"
+          className={`shrink-0 bg-gradient-to-br from-[var(--fnl-blue-soft)] to-[#b8cfe0] ${
+            large ? "aspect-[16/10] w-[132px] sm:w-[220px]" : "aspect-video w-[156px] sm:w-[168px]"
+          }`}
           aria-hidden
         />
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1 px-2.5 py-2">
+      <div
+        className={`flex min-w-0 flex-1 flex-col ${large ? "gap-1.5 px-3 py-2.5 sm:px-4 sm:py-3" : "gap-1 px-2.5 py-2"}`}
+      >
         <div className="flex items-center gap-1.5">
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
             {card.favicon ? (
@@ -122,7 +128,9 @@ function InspiratieCard({
                 {publisherLabel.charAt(0)}
               </span>
             ) : null}
-            <span className="truncate text-[11px] font-medium text-muted-foreground">
+            <span
+              className={`truncate font-medium text-muted-foreground ${large ? "text-xs" : "text-[11px]"}`}
+            >
               {publisherLabel}
             </span>
           </div>
@@ -150,14 +158,23 @@ function InspiratieCard({
           href={card.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="line-clamp-4 text-xs font-medium leading-snug text-foreground hover:text-primary hover:underline"
+          className={`font-medium leading-snug text-foreground hover:text-primary hover:underline ${
+            large ? "line-clamp-3 text-[15px]" : "line-clamp-4 text-xs"
+          }`}
         >
           {title}
         </a>
 
         <div className="mt-auto flex flex-wrap items-center gap-1">
+          {card.ownLabel && large ? (
+            <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+              {card.ownLabel}
+            </Badge>
+          ) : null}
           {showCardDate ? (
-            <span className="text-[10px] text-muted-foreground">{card.dateLabel}</span>
+            <span className={`text-muted-foreground ${large ? "ml-auto text-[11px]" : "text-[10px]"}`}>
+              {card.dateLabel}
+            </span>
           ) : null}
           {card.metricLabel ? (
             <span
@@ -189,7 +206,11 @@ function BoardColumn({
   pinnedKeys,
   onTogglePin,
   resolveTitle,
+  large = false,
+  className = "",
 }: {
+  large?: boolean;
+  className?: string;
   columnId: BoardColumnId;
   title: string;
   description: string;
@@ -212,7 +233,7 @@ function BoardColumn({
 
   return (
     <section
-      className="flex max-h-[calc(100dvh-12rem)] min-w-0 flex-col"
+      className={`flex max-h-[calc(100dvh-12rem)] min-w-0 flex-col ${className}`}
       aria-label={title}
     >
       <header className="rounded-t-[8px] border border-b-0 border-border bg-card px-3 py-2.5">
@@ -224,7 +245,10 @@ function BoardColumn({
         </div>
         <p className="text-[11px] leading-snug text-muted-foreground">{description}</p>
         {tabs && tabs.length > 1 && onTabChange ? (
-          <div className="fnl-segment mt-2 w-full" role="tablist">
+          <div
+            className={`fnl-segment mt-2 flex-wrap ${large ? "" : "w-full"}`}
+            role="tablist"
+          >
             {tabs.map((t) => (
               <button
                 key={t.value}
@@ -232,7 +256,7 @@ function BoardColumn({
                 role="tab"
                 aria-selected={activeTab === t.value}
                 data-active={activeTab === t.value ? "true" : "false"}
-                className="fnl-segment-item min-w-0 flex-1 px-2 py-1 text-[10px]"
+                className={`fnl-segment-item ${large ? "px-3 py-1 text-xs" : "grow px-2 py-1 text-[10px] whitespace-nowrap"}`}
                 onClick={() => onTabChange(t.value)}
               >
                 {t.label}
@@ -263,6 +287,7 @@ function BoardColumn({
                 displayTitle={resolveTitle?.(card.url)}
                 pinned={pinnedKeys.has(`${columnId}:${card.id}`)}
                 onTogglePin={() => onTogglePin(card)}
+                large={large}
               />
             ))}
             {hasMore ? (
@@ -412,6 +437,7 @@ export function Inspiratiebord({
 
   const [query, setQuery] = useState("");
   const [tabYoy, setTabYoy] = useState("all");
+  const [scope, setScope] = useState<"week-nl" | "week-ww">("week-nl");
 
   const [visible, setVisible] = useState<Record<BoardColumnId, number>>({
     "week-nl": BOARD_INITIAL,
@@ -702,8 +728,8 @@ export function Inspiratiebord({
             ) : null}
           </div>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Discover-markt deze week (NL en wereld) en eigen Discover in dezelfde week vorig jaar —
-            als kolommen om ideeën te vergelijken en vast te pinnen.
+            Discover-markt deze week (wissel tussen Nederland en wereldwijd) en eigen Discover in
+            dezelfde week vorig jaar, om ideeën te vergelijken en vast te pinnen.
           </p>
         </div>
         {yoy?.meta ? (
@@ -740,33 +766,29 @@ export function Inspiratiebord({
       <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 flex-1 pb-4">
         <div className="grid w-full grid-cols-1 gap-3 px-4 sm:px-6 md:grid-cols-2 xl:grid-cols-4 lg:px-8">
           <BoardColumn
-            columnId="week-nl"
-            title="Deze week · Nederland"
-            description="DiscoverSnoop · Telecom & Tech"
+            columnId={scope}
+            className="md:col-span-2"
+            large
+            title={scope === "week-nl" ? "Deze week · Nederland" : "Deze week · Wereldwijd"}
+            description={
+              scope === "week-nl"
+                ? "DiscoverSnoop · Telecom & Tech · Nederland"
+                : "DiscoverSnoop · Telecom & Tech · wereldwijd"
+            }
             countLabel={
               snoopLoading
                 ? "…"
-                : `${filtered["week-nl"].length}${filtered["week-nl"].length !== columnsWithGsc["week-nl"].length ? ` / ${columnsWithGsc["week-nl"].length}` : ""}`
+                : `${filtered[scope].length}${filtered[scope].length !== columnsWithGsc[scope].length ? ` / ${columnsWithGsc[scope].length}` : ""}`
             }
-            cards={filtered["week-nl"]}
-            visible={visible["week-nl"]}
-            onLoadMore={() => loadMore("week-nl")}
-            loading={snoopLoading}
-            pinnedKeys={pinnedKeys}
-            onTogglePin={togglePin}
-          />
-          <BoardColumn
-            columnId="week-ww"
-            title="Deze week · Wereldwijd"
-            description="DiscoverSnoop worldwide"
-            countLabel={
-              snoopLoading
-                ? "…"
-                : `${filtered["week-ww"].length}${filtered["week-ww"].length !== columnsWithGsc["week-ww"].length ? ` / ${columnsWithGsc["week-ww"].length}` : ""}`
-            }
-            cards={filtered["week-ww"]}
-            visible={visible["week-ww"]}
-            onLoadMore={() => loadMore("week-ww")}
+            tabs={[
+              { value: "week-nl", label: "Nederland" },
+              { value: "week-ww", label: "Wereldwijd" },
+            ]}
+            activeTab={scope}
+            onTabChange={(v) => setScope(v as "week-nl" | "week-ww")}
+            cards={filtered[scope]}
+            visible={visible[scope]}
+            onLoadMore={() => loadMore(scope)}
             loading={snoopLoading}
             pinnedKeys={pinnedKeys}
             onTogglePin={togglePin}

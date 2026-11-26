@@ -5,11 +5,11 @@
  * Fallback voor GSC_SITE_* is een gangbare https://www…/ URL; kan afwijken bij sc-domain:… (zet dan env).
  */
 
-export type SiteTitleId = "icreate" | "iphoned" | "iculture";
+export type SiteTitleId = "icreate" | "iphoned" | "iculture" | "androidplanet" | "androidworld";
 
-export type SiteTitleLabel = "iCreate" | "iPhoned" | "iCulture";
+export type SiteTitleLabel = "iCreate" | "iPhoned" | "iCulture" | "Android Planet" | "Androidworld";
 
-const TITLE_ORDER: SiteTitleId[] = ["icreate", "iphoned", "iculture"];
+const TITLE_ORDER: SiteTitleId[] = ["icreate", "iphoned", "iculture", "androidplanet", "androidworld"];
 
 interface TitleDefinition {
   id: SiteTitleId;
@@ -59,6 +59,28 @@ const TITLE_DEFS: readonly TitleDefinition[] = [
     badgeClass:
       "border border-[rgba(0,30,59,0.12)] bg-[#DCE7F0] text-[#001E3B]",
   },
+  {
+    id: "androidplanet",
+    label: "Android Planet",
+    hostnames: ["androidplanet.nl", "www.androidplanet.nl"],
+    ga4PropertyEnv: "GA4_PROPERTY_ANDROIDPLANET",
+    gscSiteUrlEnv: "GSC_SITE_ANDROIDPLANET",
+    primaryDomain: "androidplanet.nl",
+    newsSitemapUrl: "https://www.androidplanet.nl/news-sitemap.xml",
+    badgeClass:
+      "border border-[rgba(0,30,59,0.12)] bg-[#E6F7EC] text-[#14663A]",
+  },
+  {
+    id: "androidworld",
+    label: "Androidworld",
+    hostnames: ["androidworld.nl", "www.androidworld.nl"],
+    ga4PropertyEnv: "GA4_PROPERTY_ANDROIDWORLD",
+    gscSiteUrlEnv: "GSC_SITE_ANDROIDWORLD",
+    primaryDomain: "androidworld.nl",
+    newsSitemapUrl: "https://androidworld.nl/news-sitemap.xml",
+    badgeClass:
+      "border border-[rgba(0,30,59,0.12)] bg-[#EEF3E2] text-[#3F5A12]",
+  },
 ] as const;
 
 export interface ResolvedSiteTitle extends TitleDefinition {
@@ -71,6 +93,8 @@ const DEFAULT_GSC_BY_ID: Record<SiteTitleId, string> = {
   icreate: "https://www.icreatemagazine.nl/",
   iphoned: "https://www.iphoned.nl/",
   iculture: "https://www.iculture.nl/",
+  androidplanet: "https://www.androidplanet.nl/",
+  androidworld: "https://androidworld.nl/",
 };
 
 export function resolveSiteTitles(): ResolvedSiteTitle[] {
@@ -118,6 +142,12 @@ export function titleLabelFromPageUrl(url: string): SiteTitleLabel | "Overig" {
   } catch {
     return "Overig";
   }
+}
+
+export function titleFromPageUrl(url: string): ResolvedSiteTitle | undefined {
+  const label = titleLabelFromPageUrl(url);
+  if (label === "Overig") return undefined;
+  return resolveSiteTitles().find((t) => t.label === label);
 }
 
 export function badgeClassForLabel(label: string): string {

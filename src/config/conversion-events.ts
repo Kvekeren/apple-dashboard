@@ -4,7 +4,7 @@ import type { SiteTitleId } from "@/lib/site-titles";
  * Verhoog bij wijzigingen in events/funnels/KPI's zodat API-cache vervalt.
  * (Zie cache-sleutels in /api/conversions/*.)
  */
-export const CONVERSION_CONFIG_VERSION = 7;
+export const CONVERSION_CONFIG_VERSION = 8;
 
 /** Filteropties in de UI — `all` toont alle geconfigureerde conversie-events. */
 export type ConversionGroupFilterId =
@@ -170,7 +170,7 @@ const IPHONED_EVENTS: ConversionEvent[] = [
   { name: "filters", label: "Filters", group: "intern" },
   { name: "ad_impression", label: "Ad impressie", group: "advertenties" },
   { name: "ad_click", label: "Ad click", group: "advertenties" },
-  { name: "scroll", label: "Scroll", group: "engagement" },
+  { name: "scroll_75", label: "Scroll 75%", group: "engagement" },
   { name: "user_engagement", label: "User engagement", group: "engagement" },
   { name: "view_search_results", label: "Zoekresultaten", group: "search" },
 ];
@@ -186,7 +186,7 @@ const ICULTURE_EVENTS: ConversionEvent[] = [
   { name: "form_submit", label: "Formulier submit", group: "leads" },
   { name: "ad_impression", label: "Ad impressie", group: "advertenties" },
   { name: "ad_click", label: "Ad click", group: "advertenties" },
-  { name: "scroll", label: "Scroll", group: "engagement" },
+  { name: "scroll_75", label: "Scroll 75%", group: "engagement" },
   { name: "user_engagement", label: "User engagement", group: "engagement" },
   { name: "view_search_results", label: "Zoekresultaten", group: "search" },
 ];
@@ -310,7 +310,7 @@ export const BRAND_CONVERSION_CONFIGS: BrandConversionConfig[] = [
       {
         id: "engagement",
         label: "Engagement / clicks",
-        steps: ["page_view", "scroll", "doorklikken", "uitklikken"],
+        steps: ["page_view", "scroll_75", "doorklikken", "uitklikken"],
       },
     ],
     kpis: SHARED_KPIS,
@@ -334,6 +334,53 @@ export const BRAND_CONVERSION_CONFIGS: BrandConversionConfig[] = [
         id: "advertenties",
         label: "Advertenties",
         steps: ["ad_impression", "ad_click"],
+      },
+    ],
+    kpis: SHARED_KPIS,
+  },
+  // Android-titels draaien op hetzelfde (BigSpark) eventmodel als iPhoned.
+  {
+    brandId: "androidplanet",
+    label: "Android Planet",
+    events: IPHONED_EVENTS,
+    funnels: [
+      {
+        id: "affiliate",
+        label: "Affiliate",
+        steps: ["page_view", "uitklikken", "wct_click", "wct_conversion", "purchase"],
+      },
+      {
+        id: "advertenties",
+        label: "Advertenties",
+        steps: ["ad_impression", "ad_click"],
+      },
+      {
+        id: "engagement",
+        label: "Engagement / clicks",
+        steps: ["page_view", "scroll_75", "doorklikken", "uitklikken"],
+      },
+    ],
+    kpis: SHARED_KPIS,
+  },
+  {
+    brandId: "androidworld",
+    label: "Androidworld",
+    events: IPHONED_EVENTS,
+    funnels: [
+      {
+        id: "affiliate",
+        label: "Affiliate",
+        steps: ["page_view", "uitklikken", "wct_click", "wct_conversion", "purchase"],
+      },
+      {
+        id: "advertenties",
+        label: "Advertenties",
+        steps: ["ad_impression", "ad_click"],
+      },
+      {
+        id: "engagement",
+        label: "Engagement / clicks",
+        steps: ["page_view", "scroll_75", "doorklikken", "uitklikken"],
       },
     ],
     kpis: SHARED_KPIS,

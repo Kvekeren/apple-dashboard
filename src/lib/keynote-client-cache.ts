@@ -4,26 +4,33 @@ import type { WwdcArticleTrafficRow } from "@/lib/wwdc-traffic";
 
 export type KeynoteDashboardPayload = {
   meta: {
-    year: 2025;
     startDate: string;
     endDate: string;
+    isoWeek: number;
+    isoWeekYear: number;
     period: KeynotePeriodKey;
     periodLabel: string;
   };
   byBrand: Record<SiteTitleId, WwdcArticleTrafficRow[]>;
 };
 
-const KEYNOTE_CLIENT_CACHE_VERSION = "v1";
+const KEYNOTE_CLIENT_CACHE_VERSION = "v2";
 const STORAGE_KEY = `keynote-dashboard-${KEYNOTE_CLIENT_CACHE_VERSION}`;
 
-type StoredShape = Partial<Record<KeynotePeriodKey, KeynoteDashboardPayload>>;
+/** Per dag opgeslagen: "volgende week" schuift elke maandag op. */
+type StoredShape = { day?: string } & Partial<Record<KeynotePeriodKey, KeynoteDashboardPayload>>;
+
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function readStore(): StoredShape {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
-    return JSON.parse(raw) as StoredShape;
+    const parsed = JSON.parse(raw) as StoredShape;
+    return parsed.day === todayKey() ? parsed : {};
   } catch {
     return {};
   }
@@ -49,6 +56,7 @@ export function writeKeynoteClientCache(
 ): void {
   const store = readStore();
   store[period] = payload;
+  store.day = todayKey();
   writeStore(store);
 }
 
@@ -60,8 +68,4 @@ export function clearKeynoteClientCache(): void {
   }
 }
 
-export const KEYNOTE_CLIENT_PERIODS: KeynotePeriodKey[] = [
-  "weekBefore",
-  "startWwdc",
-  "afterWwdc",
-];
+export const KEYNOTE_CLIENT_PERIODS: KeynotePeriodKey[] = ["prevWeek", "thisWeek", "nextWeek"];

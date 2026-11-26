@@ -1,8 +1,10 @@
 import { google } from "googleapis";
 
+import { agendaPagePathVariants, agendaPathKey, agendaUrlKey } from "@/lib/agenda-url";
 import { normArticleUrl, slugFromUrl } from "@/lib/monitoring/shared";
 import type { ResolvedSiteTitle } from "@/lib/site-titles";
-import { resolveSiteTitles } from "@/lib/site-titles";
+import { resolveSiteTitles, titleFromPageUrl } from "@/lib/site-titles";
+import { buildNewsletterDimensionFilter } from "@/lib/wwdc-traffic";
 
 function titlesWithGa4(): ResolvedSiteTitle[] {
   return resolveSiteTitles().filter((t) => Boolean(t.ga4PropertyId));
@@ -205,6 +207,14 @@ function siteOriginUrl(t: ResolvedSiteTitle): string {
   } catch {
     return `https://www.${t.primaryDomain}`;
   }
+}
+
+function absolutePageLocation(pageLocation: string, site: ResolvedSiteTitle): string {
+  const raw = pageLocation.trim();
+  if (!raw || raw === "(not set)") return raw;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const origin = siteOriginUrl(site);
+  return raw.startsWith("/") ? `${origin}${raw}` : `${origin}/${raw}`;
 }
 
 function buildUrlFromPagePath(origin: string, pagePath: string): string | undefined {
@@ -580,7 +590,8 @@ export async function fetchGA4TopPagesByScreenViews(
   accessToken: string,
   startDate: string,
   endDate: string,
-  limitPerProperty = 120
+  limitPerProperty = 120,
+  onlyTitleId?: string
 ): Promise<GA4TopPageRow[]> {
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });
@@ -588,7 +599,7 @@ export async function fetchGA4TopPagesByScreenViews(
 
   const out: GA4TopPageRow[] = [];
 
-  for (const t of titlesWithGa4()) {
+  for (const t of titlesWithGa4().filter((x) => !onlyTitleId || x.id === onlyTitleId)) {
     const propertyId = t.ga4PropertyId!;
     try {
       const { data } = await analyticsdata.properties.runReport({
@@ -612,7 +623,7 @@ export async function fetchGA4TopPagesByScreenViews(
             out.push({
               source: t.label,
               pageTitle: displayTitleForTopPage(pageTitle, pageLocation, pathname),
-              url: pageLocation.trim(),
+              url: absolutePageLocation(pageLocation, t),
               screenPageViews: views,
             });
           }
@@ -626,6 +637,190 @@ export async function fetchGA4TopPagesByScreenViews(
   return out;
 }
 
+type Ga4DataClient = ReturnType<typeof google.analyticsdata>;
+
+async function runGa4PagePathReport(
+  analyticsdata: Ga4DataClient,
+  propertyId: string,
+  startDate: string,
+  endDate: string,
+  paths: string[]
+): Promise<{ pagePath: string; views: number }[]> {
+  if (!paths.length) return [];
+  try {
+    const { data } = await analyticsdata.properties.runReport({
+      property: `properties/${propertyId}`,
+      requestBody: {
+        dimensions: [{ name: "pagePath" }],
+        metrics: [{ name: "screenPageViews" }],
+        dateRanges: [{ startDate, endDate }],
+        dimensionFilter: {
+          filter: {
+            fieldName: "pagePath",
+            inListFilter: { values: paths, caseSensitive: false },
+          },
+        },
+        limit: String(Math.min(Math.max(paths.length, 1), 100000)),
+      },
+    });
+
+    return (data.rows ?? [])
+      .map((row) => ({
+        pagePath: row.dimensionValues?.[0]?.value ?? "",
+        views: parseInt(row.metricValues?.[0]?.value ?? "0", 10),
+      }))
+      .filter((row) => row.pagePath && row.pagePath !== "(not set)" && row.views > 0);
+  } catch (err) {
+    if (paths.length <= 8) {
+      console.error(`GA4 pagePath lookup failed for ${propertyId}:`, err);
+      return [];
+    }
+    const mid = Math.ceil(paths.length / 2);
+    const [left, right] = await Promise.all([
+      runGa4PagePathReport(analyticsdata, propertyId, startDate, endDate, paths.slice(0, mid)),
+      runGa4PagePathReport(analyticsdata, propertyId, startDate, endDate, paths.slice(mid)),
+    ]);
+    return [...left, ...right];
+  }
+}
+
+/**
+ * Pageviews voor specifieke artikel-URLs (buiten de top-N pageLocation-fetch).
+ * Gebruikt `pagePath` zodat UTM-varianten samenvallen.
+ */
+export async function fetchGA4PageviewsForUrls(
+  accessToken: string,
+  startDate: string,
+  endDate: string,
+  urls: string[]
+): Promise<{ url: string; screenPageViews: number }[]> {
+  const uniqueByKey = new Map<string, string>();
+  for (const url of urls) {
+    const key = agendaUrlKey(url);
+    if (key && !uniqueByKey.has(key)) uniqueByKey.set(key, url);
+  }
+
+  const bySite = new Map<string, { site: ResolvedSiteTitle; urls: string[] }>();
+  for (const url of uniqueByKey.values()) {
+    const site = titleFromPageUrl(url);
+    if (!site?.ga4PropertyId) continue;
+    const prev = bySite.get(site.id);
+    if (prev) prev.urls.push(url);
+    else bySite.set(site.id, { site, urls: [url] });
+  }
+  if (!bySite.size) return [];
+
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
+  const analyticsdata = google.analyticsdata({ version: "v1beta", auth });
+
+  const batches = await Promise.all(
+    [...bySite.values()].map(async ({ site, urls: siteUrls }) => {
+      const paths = [...new Set(siteUrls.flatMap((url) => agendaPagePathVariants(url)))];
+      const rows = await runGa4PagePathReport(
+        analyticsdata,
+        site.ga4PropertyId!,
+        startDate,
+        endDate,
+        paths
+      );
+      const viewsByPath = new Map<string, number>();
+      for (const row of rows) {
+        const key = agendaPathKey(row.pagePath);
+        viewsByPath.set(key, (viewsByPath.get(key) ?? 0) + row.views);
+      }
+      const found: { url: string; screenPageViews: number }[] = [];
+      for (const url of siteUrls) {
+        let path = "";
+        try {
+          path = new URL(url).pathname;
+        } catch {
+          continue;
+        }
+        const views = viewsByPath.get(agendaPathKey(path));
+        if (views != null && views > 0) found.push({ url, screenPageViews: views });
+      }
+      return found;
+    })
+  );
+
+  return batches.flat();
+}
+
+export interface GA4PathViewsRow {
+  /** Volledige URL op het primaire domein van de titel */
+  url: string;
+  /** Genormaliseerde padsleutel (lowercase, zonder trailing slash) */
+  pathKey: string;
+  pageTitle: string;
+  screenPageViews: number;
+}
+
+/**
+ * Alle paden van één titel met pageviews in het venster, in één GA4-call
+ * (gesorteerd aflopend, max `limit` rijen). Bewust zonder `pageTitle`-dimensie: die maakt het
+ * rapport over een jaar 10× trager; titels komen uit de CMS-feed of de artikel-HTML.
+ */
+export async function fetchGA4PathViewsForTitle(
+  accessToken: string,
+  titleId: string,
+  startDate: string,
+  endDate: string,
+  limit = 25000
+): Promise<GA4PathViewsRow[]> {
+  const site = titlesWithGa4().find((t) => t.id === titleId);
+  if (!site) return [];
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: accessToken });
+  const analyticsdata = google.analyticsdata({ version: "v1beta", auth });
+
+  const { data } = await analyticsdata.properties.runReport({
+    property: `properties/${site.ga4PropertyId}`,
+    requestBody: {
+      dimensions: [{ name: "pagePath" }],
+      metrics: [{ name: "screenPageViews" }],
+      dateRanges: [{ startDate, endDate }],
+      orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+      limit: String(limit),
+    },
+  });
+
+  const byPath = new Map<string, { path: string; views: number; title: string; titleViews: number }>();
+  for (const row of data.rows ?? []) {
+    const pagePath = row.dimensionValues?.[0]?.value ?? "";
+    const pageTitle = "";
+    const views = parseInt(row.metricValues?.[0]?.value ?? "0", 10);
+    if (!pagePath || pagePath === "(not set)" || views <= 0) continue;
+    if (!isLikelyArticlePath(pagePath, pageTitle)) continue;
+    const key = agendaPathKey(pagePath);
+    const prev = byPath.get(key);
+    if (prev) {
+      prev.views += views;
+      if (views > prev.titleViews && pageTitle && pageTitle !== "(not set)") {
+        prev.title = pageTitle;
+        prev.titleViews = views;
+      }
+    } else {
+      byPath.set(key, {
+        path: pagePath,
+        views,
+        title: pageTitle && pageTitle !== "(not set)" ? pageTitle : "",
+        titleViews: views,
+      });
+    }
+  }
+
+  const base = `https://${site.gscSiteUrl?.includes("://www.") ? "www." : ""}${site.primaryDomain}`;
+  return [...byPath.entries()]
+    .map(([pathKey, v]) => ({
+      url: `${base}${v.path.startsWith("/") ? v.path : `/${v.path}`}`,
+      pathKey,
+      pageTitle: v.title || slugFromUrl(`${base}${v.path}`),
+      screenPageViews: v.views,
+    }))
+    .sort((a, b) => b.screenPageViews - a.screenPageViews);
+}
+
 export interface GA4WeeklySessionsRow {
   source: string;
   /** ISO-jaar + ISO-week (bv. `202603` = week 3 van 2026), zie GA-dimensie `isoYearIsoWeek` */
@@ -637,40 +832,41 @@ export interface GA4WeeklySessionsRow {
 export async function fetchGA4WeeklySessionsForRange(
   accessToken: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  opts: { metric?: "sessions" | "screenPageViews"; newsletterOnly?: boolean } = {}
 ): Promise<GA4WeeklySessionsRow[]> {
+  const metric = opts.metric ?? "sessions";
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });
   const analyticsdata = google.analyticsdata({ version: "v1beta", auth });
 
-  const rowsOut: GA4WeeklySessionsRow[] = [];
-
-  for (const t of titlesWithGa4()) {
-    const propertyId = t.ga4PropertyId!;
-    try {
-      const { data } = await analyticsdata.properties.runReport({
-        property: `properties/${propertyId}`,
-        requestBody: {
-          dimensions: [{ name: "isoYearIsoWeek" }],
-          metrics: [{ name: "sessions" }],
-          dateRanges: [{ startDate, endDate }],
-          orderBys: [{ dimension: { dimensionName: "isoYearIsoWeek" } }],
-        },
-      });
-
-      if (data.rows) {
-        for (const row of data.rows) {
+  // Alle titels tegelijk: na elkaar liep dit bij vijf titels en vier reeksen op tot >60 s.
+  const perTitle = await Promise.all(
+    titlesWithGa4().map(async (t) => {
+      const out: GA4WeeklySessionsRow[] = [];
+      try {
+        const { data } = await analyticsdata.properties.runReport({
+          property: `properties/${t.ga4PropertyId!}`,
+          requestBody: {
+            dimensions: [{ name: "isoYearIsoWeek" }],
+            metrics: [{ name: metric }],
+            dateRanges: [{ startDate, endDate }],
+            orderBys: [{ dimension: { dimensionName: "isoYearIsoWeek" } }],
+            ...(opts.newsletterOnly ? { dimensionFilter: buildNewsletterDimensionFilter() } : {}),
+          },
+        });
+        for (const row of data.rows ?? []) {
           const isoW = row.dimensionValues?.[0]?.value ?? "";
           const sessions = parseInt(row.metricValues?.[0]?.value ?? "0", 10);
-          if (isoW) {
-            rowsOut.push({ source: t.label, isoYearIsoWeek: isoW, sessions });
-          }
+          if (isoW) out.push({ source: t.label, isoYearIsoWeek: isoW, sessions });
         }
+      } catch (err) {
+        console.error(`GA4 weekly sessions failed for ${t.label}:`, err);
       }
-    } catch (err) {
-      console.error(`GA4 weekly sessions failed for ${t.label}:`, err);
-    }
-  }
+      return out;
+    })
+  );
+  const rowsOut = perTitle.flat();
 
   return rowsOut;
 }
@@ -690,7 +886,8 @@ export interface GA4WeeklySessionsYoYPayload {
 /** Huidig kalenderjaar YTD + hetzelfde kalendersegment één jaar eerder (1 jan t/m dezelfde maand/dag). */
 export async function fetchGA4WeeklySessionsYearToDateWithYoY(
   accessToken: string,
-  referenceDate = new Date()
+  referenceDate = new Date(),
+  opts: { metric?: "sessions" | "screenPageViews"; newsletterOnly?: boolean } = {}
 ): Promise<GA4WeeklySessionsYoYPayload> {
   const year = referenceDate.getFullYear();
   const startCurrent = `${year}-01-01`;
@@ -702,8 +899,8 @@ export async function fetchGA4WeeklySessionsYearToDateWithYoY(
   const endPrevious = isoDateLocal(refPrev);
 
   const [current, previous] = await Promise.all([
-    fetchGA4WeeklySessionsForRange(accessToken, startCurrent, endCurrent),
-    fetchGA4WeeklySessionsForRange(accessToken, startPrevious, endPrevious),
+    fetchGA4WeeklySessionsForRange(accessToken, startCurrent, endCurrent, opts),
+    fetchGA4WeeklySessionsForRange(accessToken, startPrevious, endPrevious, opts),
   ]);
 
   return { current, previous };

@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "F&L Media — Monitoring",
   description:
-    "Interne monitoring voor iCreate, iPhoned en iCulture: GA4, Google Search Console en nieuws-sitemaps.",
+    "Interne monitoring voor iCreate, iPhoned, iCulture, Android Planet en Androidworld: GA4, Google Search Console en nieuws-sitemaps.",
 };
 
 export default function RootLayout({

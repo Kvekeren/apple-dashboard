@@ -6,6 +6,7 @@ import { nl } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { DashboardPeriodFilter } from "@/components/monitoring/period-filter";
 import { badgeClassForLabel } from "@/lib/site-titles";
+import { BrandScrollRow } from "@/components/monitoring/views/brand-scroll-row";
 import {
   SOURCE_LABELS,
   YOY_DASHBOARD_KPIS,
@@ -99,13 +100,13 @@ export function YoYSummaryCards({
             setCustomEnd={setCustomEnd}
           />
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <BrandScrollRow ariaLabel="Prestaties vs vorig jaar per titel">
           {SOURCE_LABELS.map((src) => (
-            <div key={src} className="fnl-card flex h-52 items-center justify-center p-4">
+            <div key={src} className="fnl-card flex h-52 w-full items-center justify-center p-4">
               <span className="text-sm text-muted-foreground">{src} laden…</span>
             </div>
           ))}
-        </div>
+        </BrandScrollRow>
       </section>
     );
   }
@@ -130,12 +131,12 @@ export function YoYSummaryCards({
         {formatDashboardPeriod(current.startDate, current.endDate)} vergeleken met dezelfde periode in{" "}
         {previousYear} ({formatDashboardPeriod(previous.startDate, previous.endDate)})
       </p>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <BrandScrollRow ariaLabel="Prestaties vs vorig jaar per titel">
         {SOURCE_LABELS.map((src) => {
           const sourceRow = cjfYoy.sources.find((s) => s.source === src);
           const fav = favIconUrl(src);
           return (
-            <div key={src} className="fnl-card-hover flex flex-col p-4">
+            <div key={src} className="fnl-card-hover flex w-full flex-col p-4">
               <div className="flex flex-col items-center border-b border-border pb-3">
                 {fav ? <img alt="" src={fav} className="mb-1.5 size-8 rounded-[8px]" /> : null}
                 <Badge variant="outline" className={badgeClassForLabel(src)}>
@@ -155,7 +156,7 @@ export function YoYSummaryCards({
             </div>
           );
         })}
-      </div>
+      </BrandScrollRow>
     </section>
   );
 }
