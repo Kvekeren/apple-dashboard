@@ -24,8 +24,11 @@ export async function setCached(key: string, data: unknown): Promise<void> {
 
 export const TTL = {
   MINUTES_30: 30 * 60 * 1000,
+  HOURS_1: 60 * 60 * 1000,
   HOURS_2: 2 * 60 * 60 * 1000,
+  HOURS_3: 3 * 60 * 60 * 1000,
   HOURS_6: 6 * 60 * 60 * 1000,
+  HOURS_12: 12 * 60 * 60 * 1000,
   HOURS_24: 24 * 60 * 60 * 1000,
 } as const;
 

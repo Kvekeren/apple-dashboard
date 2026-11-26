@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
   try {
     const { data, cache } = await cachedWithRevalidate(
       cacheKey,
-      days <= 7 ? TTL.MINUTES_30 : days <= 28 ? TTL.HOURS_2 : TTL.HOURS_6,
+      // Lijsten veranderen langzaam; verlopen data wordt direct getoond en op de achtergrond ververst.
+      days <= 7 ? TTL.HOURS_1 : days <= 28 ? TTL.HOURS_3 : days <= 90 ? TTL.HOURS_6 : TTL.HOURS_12,
       () => getGoogleAccessToken(cookieStore),
       (accessToken) => buildArtikelenPayload(accessToken, brand, days),
       { force: forceRefresh }

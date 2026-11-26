@@ -5,7 +5,7 @@ import { format, parseISO } from "date-fns";
 import { nl } from "date-fns/locale";
 import { ChevronDown } from "lucide-react";
 
-import { BrandTabs, SegmentSwitch } from "@/components/monitoring/brand-tabs";
+import { BRAND_TAB_ITEMS, BrandTabs, SegmentSwitch } from "@/components/monitoring/brand-tabs";
 import { MonitoringAuthGate } from "@/components/monitoring/auth-gate";
 import { useMonitoringAuth } from "@/components/monitoring/monitoring-shell";
 import { useRegisterPageRefresh } from "@/components/monitoring/monitoring-refresh-context";
@@ -231,6 +231,28 @@ function ArticleTable({ rows, maxViews, ranked }: { rows: ArtikelRow[]; maxViews
   );
 }
 
+/** Per sessie in het geheugen: wisselen tussen titels/periodes zonder opnieuw te laden. */
+const clientCache = new Map<string, ArtikelenPayload>();
+
+async function fetchArtikelen(
+  brand: SiteTitleId,
+  days: Days,
+  refresh: boolean
+): Promise<ArtikelenPayload | 401 | null> {
+  try {
+    const qs = new URLSearchParams({ brand, days });
+    if (refresh) qs.set("refresh", "1");
+    const res = await fetch(`/api/artikelen?${qs}`, { credentials: "include" });
+    if (res.status === 401) return 401;
+    if (!res.ok) return null;
+    const payload = (await res.json()) as ArtikelenPayload;
+    clientCache.set(`${brand}-${days}`, payload);
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 export function ArtikelenPage() {
   const { gscConnected } = useMonitoringAuth();
   const [brand, setBrand] = useState<SiteTitleId>("icreate");
@@ -244,25 +266,28 @@ export function ArtikelenPage() {
 
   const load = useCallback(
     async (refresh = false) => {
+      const key = `${brand}-${days}`;
+      const cached = !refresh ? clientCache.get(key) : undefined;
+      if (cached) {
+        setData(cached);
+        setError(null);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
-        const qs = new URLSearchParams({ brand, days });
-        if (refresh) qs.set("refresh", "1");
-        const res = await fetch(`/api/artikelen?${qs}`, { credentials: "include" });
-        if (!res.ok) {
+        const payload = await fetchArtikelen(brand, days, refresh);
+        if (payload === 401) {
           setData(null);
-          setError(
-            res.status === 401
-              ? "Google-sessie verlopen. Log opnieuw in via het icoon rechtsboven."
-              : "Artikelen laden mislukt."
-          );
+          setError("Google-sessie verlopen. Log opnieuw in via het icoon rechtsboven.");
           return;
         }
-        setData((await res.json()) as ArtikelenPayload);
-      } catch {
-        setData(null);
-        setError("Artikelen laden mislukt.");
+        if (!payload) {
+          setData(null);
+          setError("Artikelen laden mislukt.");
+          return;
+        }
+        setData(payload);
       } finally {
         setLoading(false);
       }
@@ -274,13 +299,31 @@ export function ArtikelenPage() {
     if (gscConnected) void load();
   }, [gscConnected, load]);
 
+  // Na het laden de andere titels voor dezelfde periode alvast ophalen, zodat wisselen direct gaat.
+  useEffect(() => {
+    if (!gscConnected || data?.brand !== brand || data.meta.days !== Number(days)) return;
+    let cancelled = false;
+    void (async () => {
+      for (const other of BRAND_TAB_ITEMS.map((t) => t.id)) {
+        if (cancelled) return;
+        if (clientCache.has(`${other}-${days}`)) continue;
+        await fetchArtikelen(other, days, false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gscConnected, data, brand, days]);
+
   useEffect(() => setVisible(PAGE_STEP), [brand, days, view, onlyInPeriod]);
 
   const refresh = useCallback(() => load(true), [load]);
   useRegisterPageRefresh(gscConnected ? refresh : null, gscConnected);
 
+  const isCurrent = data?.brand === brand && data.meta.days === Number(days);
+
   const rows = useMemo(() => {
-    const all = data?.brand === brand ? data.rows : [];
+    const all = isCurrent && data ? data.rows : [];
     if (view === "recent") {
       return all
         .filter((r) => r.inPeriod && r.publishedDate)
@@ -291,7 +334,7 @@ export function ArtikelenPage() {
         );
     }
     return all.filter((r) => !onlyInPeriod || r.inPeriod).sort((a, b) => b.pageviews - a.pageviews);
-  }, [data, brand, view, onlyInPeriod]);
+  }, [data, isCurrent, view, onlyInPeriod]);
 
   const maxViews = useMemo(() => rows.reduce((m, r) => Math.max(m, r.pageviews), 0), [rows]);
   const shown = rows.slice(0, visible);
@@ -323,7 +366,7 @@ export function ArtikelenPage() {
               </label>
             ) : null}
           </div>
-          {data?.brand === brand ? (
+          {isCurrent && data ? (
             <p className="text-xs text-muted-foreground">
               Pageviews van {format(parseISO(data.meta.startDate), "d MMMM yyyy", { locale: nl })} t/m{" "}
               {format(parseISO(data.meta.endDate), "d MMMM yyyy", { locale: nl })}. Artikelen van de
@@ -337,11 +380,11 @@ export function ArtikelenPage() {
 
         {error ? <p className="text-sm text-[var(--fnl-danger)]">{error}</p> : null}
 
-        {loading && data?.brand !== brand ? (
+        {loading && !isCurrent ? (
           <div className="fnl-card py-16 text-center text-sm text-muted-foreground">
             Artikelen laden… (bij 90 dagen of 12 maanden kan dit de eerste keer even duren)
           </div>
-        ) : data?.brand === brand ? (
+        ) : isCurrent && data ? (
           <>
             {loading ? <p className="text-xs text-muted-foreground">Verversen…</p> : null}
             <TimingInsights rows={data.rows} />

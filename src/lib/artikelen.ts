@@ -144,9 +144,9 @@ function feedPagesForDays(days: number): number {
  * artikel-HTML. Sommige sites remmen veel gelijktijdige verzoeken af, dus: weinig tegelijk,
  * een tijdsbudget per API-verzoek, en de cache vult zich bij elke verversing verder aan.
  */
-const TOP_LOOKUP_CANDIDATES = 60;
+const TOP_LOOKUP_CANDIDATES = 40;
 const LOOKUP_CONCURRENCY = 4;
-const LOOKUP_BUDGET_MS = 10_000;
+const LOOKUP_BUDGET_MS = 5_000;
 
 function stripBrandSuffix(title: string): string {
   return title.replace(/\s+[-|–]\s+(iPhoned|iCulture|iCreate|Android ?Planet|Androidworld)\s*$/i, "").trim();
@@ -232,7 +232,7 @@ export async function buildArtikelenPayload(
       }
     });
     // Harde grens: lopende lookups mogen het antwoord niet ophouden.
-    await Promise.race([work, new Promise((r) => setTimeout(r, LOOKUP_BUDGET_MS + 2000))]);
+    await Promise.race([work, new Promise((r) => setTimeout(r, LOOKUP_BUDGET_MS + 1000))]);
   }
   const tLookups = Date.now();
 
