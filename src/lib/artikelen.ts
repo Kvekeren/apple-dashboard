@@ -1,11 +1,8 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
-
 import { fetchTitleFeed } from "@/lib/agenda-feed";
 import { agendaPathKey, agendaUrlKey } from "@/lib/agenda-url";
 import { fetchGA4PathViewsForTitle } from "@/lib/ga4";
 import { getDateRange } from "@/lib/search-console";
+import { kvGetMany, kvSet } from "@/lib/shared-cache";
 import type { SiteTitleId } from "@/lib/site-titles";
 
 export type ArtikelRow = {
@@ -34,33 +31,11 @@ export type ArtikelenPayload = {
 /* Publicatiedatum + titel uit de artikel-HTML (persistente cache)      */
 /* ------------------------------------------------------------------ */
 
-const CACHE_DIR = process.env.VERCEL ? "/tmp" : path.join(process.cwd(), "data");
-const PUB_CACHE_FILE = path.join(CACHE_DIR, "published-iso-cache.json");
-
 type PubCacheEntry = { iso: string | null; title: string | null; checkedAt: number };
-let pubCache: Record<string, PubCacheEntry> | null = null;
 
-async function loadPubCache(): Promise<Record<string, PubCacheEntry>> {
-  if (pubCache) return pubCache;
-  try {
-    pubCache = existsSync(PUB_CACHE_FILE)
-      ? (JSON.parse(await readFile(PUB_CACHE_FILE, "utf-8")) as Record<string, PubCacheEntry>)
-      : {};
-  } catch {
-    pubCache = {};
-  }
-  return pubCache;
-}
-
-async function savePubCache(): Promise<void> {
-  if (!pubCache) return;
-  try {
-    if (!existsSync(CACHE_DIR)) await mkdir(CACHE_DIR, { recursive: true });
-    await writeFile(PUB_CACHE_FILE, JSON.stringify(pubCache));
-  } catch {
-    /* read-only fs */
-  }
-}
+/** Publicatiedatum + titel per artikel, gedeeld en lang houdbaar (verandert niet). */
+const PUB_MAX_AGE_SEC = 90 * 24 * 60 * 60;
+const pubKey = (url: string) => `pubiso-${agendaUrlKey(url)}`;
 
 function decodeEntities(s: string): string {
   return s
@@ -235,26 +210,29 @@ export async function buildArtikelenPayload(
   }
 
   // Toppagina's zonder datum: publicatiedatum uit de artikel-HTML (gecachet per URL).
-  const cache = await loadPubCache();
   const undated = [...byKey.values()]
     .filter((r) => !r.publishedDate)
     .sort((a, b) => b.pageviews - a.pageviews)
     .slice(0, TOP_LOOKUP_CANDIDATES);
+  const found = await kvGetMany<PubCacheEntry>(undated.map((r) => pubKey(r.url)));
+  const cache: Record<string, PubCacheEntry> = {};
+  for (const r of undated) {
+    const hit = found.get(pubKey(r.url));
+    if (hit) cache[agendaUrlKey(r.url)] = hit.data;
+  }
   const toFetch = undated.filter((r) => !cache[agendaUrlKey(r.url)]);
   if (toFetch.length) {
     const deadline = Date.now() + LOOKUP_BUDGET_MS;
-    let fetched = 0;
     const work = mapLimit(toFetch, LOOKUP_CONCURRENCY, async (r) => {
       if (Date.now() > deadline) return;
       const hit = await lookupArticleMeta(r.url);
       if (hit) {
         cache[agendaUrlKey(r.url)] = hit;
-        fetched++;
+        await kvSet(pubKey(r.url), hit, PUB_MAX_AGE_SEC);
       }
     });
     // Harde grens: lopende lookups mogen het antwoord niet ophouden.
     await Promise.race([work, new Promise((r) => setTimeout(r, LOOKUP_BUDGET_MS + 2000))]);
-    if (fetched) await savePubCache();
   }
   const tLookups = Date.now();
 

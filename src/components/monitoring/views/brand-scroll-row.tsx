@@ -6,9 +6,16 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /**
- * Horizontale rij met één kaart per merk. Op brede schermen passen er ~3,5 kaarten in beeld,
- * zodat duidelijk is dat er meer rechts staat; pijlknoppen en trackpad/touch scrollen.
+ * Horizontale rij met één kaart per merk, schermbreed (full bleed) terwijl de rest van de pagina
+ * in de container blijft. De eerste kaart lijnt uit met de content; de rij loopt door tot de
+ * schermrand zodat zichtbaar is dat er meer rechts staat. Pijlknoppen en trackpad/touch scrollen.
  */
+
+/** Zelfde inspringing als de pagina-container (max-w var(--container-max), px-4 / sm:px-6). */
+const GUTTER =
+  "px-4 sm:px-[max(1.5rem,calc((100vw-var(--container-max))/2+1.5rem))] " +
+  "scroll-px-4 sm:scroll-px-[max(1.5rem,calc((100vw-var(--container-max))/2+1.5rem))]";
+
 export function BrandScrollRow({
   children,
   ariaLabel,
@@ -47,13 +54,13 @@ export function BrandScrollRow({
   }
 
   return (
-    <div className="relative">
+    <div className="relative left-1/2 w-[100vw] -translate-x-1/2">
       <div
         ref={ref}
         onScroll={update}
         role="region"
         aria-label={ariaLabel}
-        className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3 [scrollbar-width:thin]"
+        className={`flex snap-x snap-mandatory gap-3 overflow-x-auto pt-1 pb-3 [scrollbar-width:thin] ${GUTTER}`}
       >
         {children.map((child, i) => (
           <div key={i} className={`flex shrink-0 snap-start ${itemClassName}`}>
@@ -68,7 +75,7 @@ export function BrandScrollRow({
           size="icon"
           aria-label="Scroll naar links"
           onClick={() => scrollBy(-1)}
-          className="absolute top-1/2 left-0 z-10 hidden size-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background shadow-md sm:inline-flex"
+          className="absolute top-1/2 left-3 z-10 hidden size-9 -translate-y-1/2 rounded-full bg-background shadow-md sm:inline-flex"
         >
           <ChevronLeft className="size-4" />
         </Button>
@@ -80,7 +87,7 @@ export function BrandScrollRow({
           size="icon"
           aria-label="Scroll naar rechts"
           onClick={() => scrollBy(1)}
-          className="absolute top-1/2 right-0 z-10 hidden size-9 translate-x-1/2 -translate-y-1/2 rounded-full bg-background shadow-md sm:inline-flex"
+          className="absolute top-1/2 right-3 z-10 hidden size-9 -translate-y-1/2 rounded-full bg-background shadow-md sm:inline-flex"
         >
           <ChevronRight className="size-4" />
         </Button>

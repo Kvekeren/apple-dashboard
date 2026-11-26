@@ -1,10 +1,12 @@
 import { google } from "googleapis";
+import { after } from "next/server";
 
 import { agendaPagePathVariants, agendaPathKey, agendaUrlKey } from "@/lib/agenda-url";
 import { normArticleUrl, slugFromUrl } from "@/lib/monitoring/shared";
 import type { ResolvedSiteTitle } from "@/lib/site-titles";
 import { resolveSiteTitles, titleFromPageUrl } from "@/lib/site-titles";
 import { buildNewsletterDimensionFilter } from "@/lib/wwdc-traffic";
+import { kvGet, kvSet } from "@/lib/shared-cache";
 
 function titlesWithGa4(): ResolvedSiteTitle[] {
   return resolveSiteTitles().filter((t) => Boolean(t.ga4PropertyId));
@@ -27,7 +29,8 @@ export async function fetchGA4ScreenPageViewsBySource(
 
   const results: { source: string; count: number }[] = [];
 
-  for (const t of titlesWithGa4()) {
+  await Promise.all(
+    titlesWithGa4().map(async (t) => {
     const propertyId = t.ga4PropertyId!;
     try {
       const { data } = await analyticsdata.properties.runReport({
@@ -48,7 +51,8 @@ export async function fetchGA4ScreenPageViewsBySource(
       console.error(`GA4 screenPageViews total failed for ${t.label}:`, err);
       results.push({ source: t.label, count: 0 });
     }
-  }
+  })
+  );
 
   return results;
 }
@@ -252,7 +256,33 @@ function mergeTopPagesByUrl(pages: GA4TopPageRow[]): GA4TopPageRow[] {
   return [...byUrl.values()];
 }
 
+const REALTIME_LOOKUP_KEY = "realtime-url-lookup-v1";
+const REALTIME_LOOKUP_FRESH_MS = 20 * 60 * 1000;
+const REALTIME_LOOKUP_STALE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Titel→URL-opzoektabel voor realtime (GA4-rapporten met paginatitel zijn traag).
+ * Gedeeld gecachet: 20 min vers; daarna oude tabel gebruiken en op de achtergrond verversen.
+ */
 async function fetchRealtimeUrlLookupPages(
+  accessToken: string
+): Promise<{ pages: GA4TopPageRow[] }> {
+  const entry = await kvGet<{ pages: GA4TopPageRow[] }>(REALTIME_LOOKUP_KEY);
+  const age = entry ? Date.now() - entry.timestamp : Infinity;
+  if (entry && age <= REALTIME_LOOKUP_FRESH_MS) return entry.data;
+  const refresh = async () => {
+    const fresh = await fetchRealtimeUrlLookupPagesUncached(accessToken);
+    await kvSet(REALTIME_LOOKUP_KEY, fresh);
+    return fresh;
+  };
+  if (entry && age <= REALTIME_LOOKUP_STALE_MS) {
+    after(() => refresh().then(() => undefined, (err) => console.error("realtime-lookup verversen", err)));
+    return entry.data;
+  }
+  return refresh();
+}
+
+async function fetchRealtimeUrlLookupPagesUncached(
   accessToken: string
 ): Promise<{ pages: GA4TopPageRow[] }> {
   const weekRange = recentDaysInAmsterdam(7);
@@ -285,7 +315,8 @@ export async function fetchGA4RealtimeTopPages(
   const results: GA4RealtimeTopPage[] = [];
   const fetchLimit = Math.max(limitPerProperty * 12, 60);
 
-  for (const t of titlesWithGa4()) {
+  await Promise.all(
+    titlesWithGa4().map(async (t) => {
     const propertyId = t.ga4PropertyId!;
     const siteOrigin = siteOriginUrl(t);
     let titleSearchCount = 0;
@@ -352,7 +383,8 @@ export async function fetchGA4RealtimeTopPages(
     } catch (err) {
       console.error(`GA4 realtime top pages failed for ${t.label}:`, err);
     }
-  }
+  })
+  );
 
   return results;
 }
@@ -364,11 +396,12 @@ export async function fetchGA4ActiveUsers(accessToken: string): Promise<GA4Activ
 
   const results: GA4ActiveUsers[] = [];
 
-  for (const t of resolveSiteTitles()) {
+  await Promise.all(
+    resolveSiteTitles().map(async (t) => {
     const propertyId = t.ga4PropertyId;
     if (!propertyId) {
       results.push({ source: t.label, activeUsers: 0 });
-      continue;
+      return;
     }
 
     try {
@@ -392,7 +425,8 @@ export async function fetchGA4ActiveUsers(accessToken: string): Promise<GA4Activ
       console.error(`GA4 realtime activeUsers failed for ${t.label}:`, err);
       results.push({ source: t.label, activeUsers: 0 });
     }
-  }
+  })
+  );
 
   return results;
 }
@@ -599,7 +633,8 @@ export async function fetchGA4TopPagesByScreenViews(
 
   const out: GA4TopPageRow[] = [];
 
-  for (const t of titlesWithGa4().filter((x) => !onlyTitleId || x.id === onlyTitleId)) {
+  await Promise.all(
+    titlesWithGa4().filter((x) => !onlyTitleId || x.id === onlyTitleId).map(async (t) => {
     const propertyId = t.ga4PropertyId!;
     try {
       const { data } = await analyticsdata.properties.runReport({
@@ -632,7 +667,8 @@ export async function fetchGA4TopPagesByScreenViews(
     } catch (err) {
       console.error(`GA4 top pages failed for ${t.label}:`, err);
     }
-  }
+  })
+  );
 
   return out;
 }

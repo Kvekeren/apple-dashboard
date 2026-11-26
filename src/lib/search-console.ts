@@ -72,9 +72,10 @@ export async function fetchGscSummariesByTitle(
   const byTitle: GscTitleSummaries = {};
   const errors: { title: SiteTitleLabel; channel: "web" | "discover"; message: string }[] = [];
 
-  for (const t of resolveSiteTitles()) {
+  await Promise.all(
+    resolveSiteTitles().map(async (t) => {
     const siteUrl = t.gscSiteUrl;
-    if (!siteUrl?.trim()) continue;
+    if (!siteUrl?.trim()) return;
 
     const web = await fetchGscTotalsForSite(accessToken, siteUrl, "web", startDate, endDate);
     const disc = await fetchGscTotalsForSite(accessToken, siteUrl, "discover", startDate, endDate);
@@ -86,7 +87,8 @@ export async function fetchGscSummariesByTitle(
 
     if (web.error) errors.push({ title: t.label, channel: "web", message: web.error });
     if (disc.error) errors.push({ title: t.label, channel: "discover", message: disc.error });
-  }
+  })
+  );
 
   return { byTitle, errors };
 }
@@ -114,7 +116,8 @@ export async function fetchSearchData(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const allRows: SearchRow[] = [];
 
-  for (const siteUrl of listGscSiteUrls()) {
+  await Promise.all(
+    listGscSiteUrls().map(async (siteUrl) => {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -143,7 +146,8 @@ export async function fetchSearchData(
     } catch (err) {
       console.error(`GSC search fetch failed for ${siteUrl}:`, err);
     }
-  }
+  })
+  );
 
   return allRows;
 }
@@ -159,7 +163,8 @@ export async function fetchDiscoverData(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const allRows: DiscoverRow[] = [];
 
-  for (const siteUrl of listGscSiteUrls()) {
+  await Promise.all(
+    listGscSiteUrls().map(async (siteUrl) => {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -188,7 +193,8 @@ export async function fetchDiscoverData(
     } catch (err) {
       console.error(`GSC fetch failed for ${siteUrl}:`, err);
     }
-  }
+  })
+  );
 
   return allRows;
 }
@@ -204,7 +210,8 @@ export async function fetchDiscoverDataByProperty(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const results: { siteUrl: string; rows: DiscoverRow[] }[] = [];
 
-  for (const siteUrl of listGscSiteUrls()) {
+  await Promise.all(
+    listGscSiteUrls().map(async (siteUrl) => {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -235,7 +242,8 @@ export async function fetchDiscoverDataByProperty(
       console.error(`GSC discover by-property failed for ${siteUrl}:`, err);
       results.push({ siteUrl, rows: [] });
     }
-  }
+  })
+  );
   return results;
 }
 
@@ -250,7 +258,8 @@ export async function fetchSearchDataByProperty(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const results: { siteUrl: string; rows: SearchRow[] }[] = [];
 
-  for (const siteUrl of listGscSiteUrls()) {
+  await Promise.all(
+    listGscSiteUrls().map(async (siteUrl) => {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -281,7 +290,8 @@ export async function fetchSearchDataByProperty(
       console.error(`GSC search by-property failed for ${siteUrl}:`, err);
       results.push({ siteUrl, rows: [] });
     }
-  }
+  })
+  );
   return results;
 }
 
@@ -296,7 +306,8 @@ export async function fetchSearchTotals(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const results: { siteUrl: string; clicks: number }[] = [];
 
-  for (const siteUrl of listGscSiteUrls()) {
+  await Promise.all(
+    listGscSiteUrls().map(async (siteUrl) => {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -313,7 +324,8 @@ export async function fetchSearchTotals(
     } catch (err) {
       console.error(`GSC search totals failed for ${siteUrl}:`, err);
     }
-  }
+  })
+  );
   return results;
 }
 
@@ -328,7 +340,8 @@ export async function fetchDiscoverTotals(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const results: { siteUrl: string; clicks: number }[] = [];
 
-  for (const siteUrl of listGscSiteUrls()) {
+  await Promise.all(
+    listGscSiteUrls().map(async (siteUrl) => {
     try {
       const { data } = await searchconsole.searchanalytics.query({
         siteUrl,
@@ -345,7 +358,8 @@ export async function fetchDiscoverTotals(
     } catch (err) {
       console.error(`GSC discover totals failed for ${siteUrl}:`, err);
     }
-  }
+  })
+  );
   return results;
 }
 
@@ -408,9 +422,10 @@ export async function fetchGscWeeklyClicksForRange(
   const searchconsole = google.searchconsole({ version: "v1", auth });
   const rowsOut: GscWeeklyClicksRow[] = [];
 
-  for (const t of resolveSiteTitles()) {
+  await Promise.all(
+    resolveSiteTitles().map(async (t) => {
     const siteUrl = t.gscSiteUrl;
-    if (!siteUrl?.trim()) continue;
+    if (!siteUrl?.trim()) return;
 
     const weekClicks = new Map<string, number>();
     try {
@@ -441,7 +456,8 @@ export async function fetchGscWeeklyClicksForRange(
     for (const [isoYearIsoWeek, clicks] of weekClicks) {
       rowsOut.push({ source: t.label, isoYearIsoWeek, clicks });
     }
-  }
+  })
+  );
 
   return rowsOut;
 }

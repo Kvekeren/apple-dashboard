@@ -1,42 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import {
-  fetchGscWeeklyClicksYearToDateWithYoY,
-  type GscWeeklyClicksRow,
-} from "@/lib/search-console";
-import { getCached, setCached, TTL } from "@/lib/api-cache";
+import { fetchGscWeeklyClicksYearToDateWithYoY } from "@/lib/search-console";
+import { cachedWithRevalidate, NotConnectedError, TTL } from "@/lib/api-cache";
 import { getGoogleAccessToken } from "@/lib/google-access-token";
 
 const CACHE_KEY = "gsc-ytd-clicks-v1-weekly-yoy";
 
-type ChannelPayload = {
-  rows: GscWeeklyClicksRow[];
-  rowsPreviousYear: GscWeeklyClicksRow[];
-};
-
 export async function GET(request: NextRequest) {
   const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
 
-  if (!forceRefresh) {
-    const cached = await getCached<{
-      discover: ChannelPayload;
-      search: ChannelPayload;
-      meta: { year: number; previousYear: number };
-    }>(CACHE_KEY, TTL.HOURS_24);
-    if (cached) return NextResponse.json(cached);
-  }
-
   const cookieStore = await cookies();
-  const accessToken = await getGoogleAccessToken(cookieStore);
-
-  if (!accessToken) {
-    return NextResponse.json(
-      { error: "Niet verbonden. Log in via Search Console." },
-      { status: 401 }
-    );
-  }
-
   try {
+    const { data, cache } = await cachedWithRevalidate(
+      CACHE_KEY,
+      TTL.HOURS_24,
+      () => getGoogleAccessToken(cookieStore),
+      async (accessToken) => {
     const now = new Date();
     const year = now.getFullYear();
     const [discover, search] = await Promise.all([
@@ -55,9 +34,15 @@ export async function GET(request: NextRequest) {
       },
       meta: { year, previousYear: year - 1 },
     };
-    await setCached(CACHE_KEY, payload);
-    return NextResponse.json(payload);
+      return payload;
+      },
+      { force: forceRefresh }
+    );
+    return NextResponse.json(data, { headers: { "X-Cache": cache } });
   } catch (err) {
+    if (err instanceof NotConnectedError) {
+      return NextResponse.json({ error: "Niet verbonden met Google." }, { status: 401 });
+    }
     console.error("GSC YTD clicks error:", err);
     return NextResponse.json(
       { error: "GSC YTD-clicks ophalen mislukt" },

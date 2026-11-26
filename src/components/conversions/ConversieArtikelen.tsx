@@ -381,7 +381,12 @@ export function ConversieArtikelen() {
             Bron: GA4. {current.meta.revenueLabel} = omzet uit <code>purchase</code>-events
             {showAff ? " (WeCanTrack)" : " (shop)"}; advertentie-omzet = advertentie-inkomsten uit{" "}
             <code>ad_impression</code>
-            {showNative ? "; native klikken = uitklikken met type “native”" : ""}. Klikratio = uitklikken
+            {showNative
+              ? estimate
+                ? "; native klikken = uitklikken met type “native”"
+                : "; uitklikken = alle clickout-events (affiliate, prijsvergelijker, shop, outbound, native); native = clickout_native"
+              : ""}
+            . Klikratio = uitklikken
             per pageview. RPM = omzet in GA4 per 1.000 pageviews.
           </p>
         </>

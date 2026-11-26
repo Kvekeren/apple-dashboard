@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { fetchGA4WeeklySessionsYearToDateWithYoY, type GA4WeeklySessionsRow } from "@/lib/ga4";
-import { getCached, setCached, TTL } from "@/lib/api-cache";
+import { cachedWithRevalidate, NotConnectedError, TTL } from "@/lib/api-cache";
 import { getGoogleAccessToken } from "@/lib/google-access-token";
 
 /**
@@ -22,22 +22,13 @@ type Payload = {
 export async function GET(request: NextRequest) {
   const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
 
-  if (!forceRefresh) {
-    const cached = await getCached<Payload>(CACHE_KEY, TTL.HOURS_24);
-    if (cached) return NextResponse.json(cached);
-  }
-
   const cookieStore = await cookies();
-  const accessToken = await getGoogleAccessToken(cookieStore);
-
-  if (!accessToken) {
-    return NextResponse.json(
-      { error: "Niet verbonden. Log in via Search Console." },
-      { status: 401 }
-    );
-  }
-
   try {
+    const { data, cache } = await cachedWithRevalidate(
+      CACHE_KEY,
+      TTL.HOURS_24,
+      () => getGoogleAccessToken(cookieStore),
+      async (accessToken) => {
     const now = new Date();
     const [pageviews, newsletter] = await Promise.all([
       fetchGA4WeeklySessionsYearToDateWithYoY(accessToken, now, { metric: "screenPageViews" }),
@@ -53,9 +44,15 @@ export async function GET(request: NextRequest) {
       newsletter: { rows: newsletter.current, rowsPreviousYear: newsletter.previous },
       meta: { year, previousYear: year - 1 },
     };
-    await setCached(CACHE_KEY, payload);
-    return NextResponse.json(payload);
+      return payload;
+      },
+      { force: forceRefresh }
+    );
+    return NextResponse.json(data, { headers: { "X-Cache": cache } });
   } catch (err) {
+    if (err instanceof NotConnectedError) {
+      return NextResponse.json({ error: "Niet verbonden met Google." }, { status: 401 });
+    }
     console.error("GA4 YTD error:", err);
     return NextResponse.json(
       { error: "YTD-cijfers ophalen mislukt" },

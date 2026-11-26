@@ -5,7 +5,7 @@ import {
   fetchSearchData,
 } from "@/lib/search-console";
 import { fetchGA4ScreenPageViewsBySource } from "@/lib/ga4";
-import { getCachedCijfers, setCachedCijfers } from "@/lib/cijfers-cache";
+import { cachedWithRevalidate, NotConnectedError, TTL } from "@/lib/api-cache";
 import { getGoogleAccessToken } from "@/lib/google-access-token";
 import { titleLabelFromPageUrl, listTitleLabelsInOrder } from "@/lib/site-titles";
 import { parseDashboardRangeFromRequest } from "@/lib/dashboard-date-range";
@@ -63,24 +63,13 @@ export async function GET(request: NextRequest) {
     parseDashboardRangeFromRequest(request);
   const cacheKey = `v2-${periodKey}`;
 
-  if (!forceRefresh) {
-    const cached = await getCachedCijfers(cacheKey);
-    if (cached) {
-      return NextResponse.json(cached);
-    }
-  }
-
   const cookieStore = await cookies();
-  const accessToken = await getGoogleAccessToken(cookieStore);
-
-  if (!accessToken) {
-    return NextResponse.json(
-      { error: "Niet verbonden. Log in via Search Console." },
-      { status: 401 }
-    );
-  }
-
   try {
+    const { data, cache } = await cachedWithRevalidate(
+      `cijfers-${cacheKey}`,
+      TTL.HOURS_24,
+      () => getGoogleAccessToken(cookieStore),
+      async (accessToken) => {
     const [
       discoverCurrent,
       discoverPrevious,
@@ -166,10 +155,15 @@ export async function GET(request: NextRequest) {
       sources,
     };
 
-    await setCachedCijfers(response, cacheKey);
-
-    return NextResponse.json(response);
+    return response;
+      },
+      { force: forceRefresh }
+    );
+    return NextResponse.json(data, { headers: { "X-Cache": cache } });
   } catch (err) {
+    if (err instanceof NotConnectedError) {
+      return NextResponse.json({ error: "Niet verbonden met Google." }, { status: 401 });
+    }
     console.error("Cijfers fetch error:", err);
     return NextResponse.json(
       { error: "Cijfers ophalen mislukt" },

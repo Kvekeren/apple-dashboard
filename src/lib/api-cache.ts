@@ -1,47 +1,25 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
+import { after } from "next/server";
 
-const CACHE_DIR = process.env.VERCEL ? "/tmp" : path.join(process.cwd(), "data");
+import { kvGet, kvSet } from "@/lib/shared-cache";
 
-function safeKey(key: string): string {
-  return key.replace(/[^a-zA-Z0-9_-]/g, "_");
-}
-
-/** Verhoog bij een andere merkenset (site-titles) zodat oude caches zonder die merken vervallen. */
+/**
+ * Cache voor API-payloads (gedeeld tussen alle serverinstanties, zie shared-cache.ts).
+ * Verhoog BRAND_SET_VERSION bij een andere merkenset zodat oude payloads zonder die merken vervallen.
+ */
 const BRAND_SET_VERSION = "b5";
 
-function getCachePath(key: string): string {
-  return path.join(CACHE_DIR, `cache-${BRAND_SET_VERSION}-${safeKey(key)}.json`);
+function fullKey(key: string): string {
+  return `api-${BRAND_SET_VERSION}-${key}`;
 }
 
-export async function getCached<T>(
-  key: string,
-  ttlMs: number
-): Promise<T | null> {
-  try {
-    const filePath = getCachePath(key);
-    if (!existsSync(filePath)) return null;
-    const raw = await readFile(filePath, "utf-8");
-    const cached = JSON.parse(raw) as { data: T; timestamp: number };
-    if (Date.now() - cached.timestamp > ttlMs) return null;
-    return cached.data;
-  } catch {
-    return null;
-  }
+export async function getCached<T>(key: string, ttlMs: number): Promise<T | null> {
+  const entry = await kvGet<T>(fullKey(key));
+  if (!entry || Date.now() - entry.timestamp > ttlMs) return null;
+  return entry.data;
 }
 
 export async function setCached(key: string, data: unknown): Promise<void> {
-  try {
-    if (!existsSync(CACHE_DIR)) {
-      await mkdir(CACHE_DIR, { recursive: true });
-    }
-    const filePath = getCachePath(key);
-    const cached = { data, timestamp: Date.now() };
-    await writeFile(filePath, JSON.stringify(cached));
-  } catch {
-    // ignore
-  }
+  await kvSet(fullKey(key), data);
 }
 
 export const TTL = {
@@ -50,3 +28,68 @@ export const TTL = {
   HOURS_6: 6 * 60 * 60 * 1000,
   HOURS_24: 24 * 60 * 60 * 1000,
 } as const;
+
+/** Bij te oude data (bijv. na een week) niet meer stale serveren maar opnieuw laten wachten. */
+const MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Lopende achtergrond-verversingen per instantie, zodat we dezelfde sleutel niet dubbel ophalen. */
+const refreshing = new Set<string>();
+
+export class NotConnectedError extends Error {
+  constructor() {
+    super("Niet verbonden met Google");
+  }
+}
+
+/**
+ * Stale-while-revalidate:
+ * - vers in de cache → direct teruggeven;
+ * - verlopen maar < 7 dagen oud → direct de oude data teruggeven en ná het antwoord op de
+ *   achtergrond verversen (Next `after`);
+ * - niets bruikbaars (of `force`) → nu ophalen, opslaan en teruggeven.
+ *
+ * Het Google-token wordt altijd eerst, tijdens het verzoek, opgehaald (`getToken`): zonder login
+ * geen data (ook niet uit de cache), en een token-refresh schrijft cookies, wat na het antwoord
+ * niet meer kan.
+ */
+export async function cachedWithRevalidate<T>(
+  key: string,
+  ttlMs: number,
+  getToken: () => Promise<string | null>,
+  compute: (accessToken: string) => Promise<T>,
+  opts: { force?: boolean; isUsable?: (data: T) => boolean; shouldStore?: (data: T) => boolean } = {}
+): Promise<{ data: T; cache: "hit" | "stale" | "miss" }> {
+  const k = fullKey(key);
+  const store = async (data: T) => {
+    if (!opts.shouldStore || opts.shouldStore(data)) await kvSet(k, data);
+  };
+  // Ook gecachete data alleen voor ingelogde gebruikers (de cache is gedeeld).
+  const token = await getToken();
+  if (!token) throw new NotConnectedError();
+
+  if (!opts.force) {
+    const entry = await kvGet<T>(k);
+    if (entry && (!opts.isUsable || opts.isUsable(entry.data))) {
+      const age = Date.now() - entry.timestamp;
+      if (age <= ttlMs) return { data: entry.data, cache: "hit" };
+      if (age <= MAX_STALE_MS) {
+        if (!refreshing.has(k)) {
+          refreshing.add(k);
+          after(async () => {
+            try {
+              await store(await compute(token));
+            } catch (err) {
+              console.error(`verversen ${key} mislukt`, err);
+            } finally {
+              refreshing.delete(k);
+            }
+          });
+        }
+        return { data: entry.data, cache: "stale" };
+      }
+    }
+  }
+  const data = await compute(token);
+  await store(data);
+  return { data, cache: "miss" };
+}

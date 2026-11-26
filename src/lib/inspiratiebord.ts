@@ -10,8 +10,9 @@ import { favIconUrl } from "@/lib/monitoring/shared";
 import { titleLabelFromPageUrl, type SiteTitleLabel } from "@/lib/site-titles";
 
 export const INSPIRATIE_LADE_KEY = "apple-dashboard-ideeen-lade";
-export const BOARD_INITIAL = 8;
-export const BOARD_STEP = 5;
+/** Kaarten per kolom bij openen; daarna laadt de kolom automatisch bij in stappen van BOARD_STEP. */
+export const BOARD_INITIAL = 20;
+export const BOARD_STEP = 20;
 
 export type BoardColumnId = "week-nl" | "week-ww" | "yoy";
 
@@ -75,13 +76,6 @@ export function publisherMetaFromUrl(
   }
 }
 
-function formatMetricScore(score: number): string | undefined {
-  if (!Number.isFinite(score) || score <= 0) return undefined;
-  if (score >= 1_000_000) return `${(score / 1_000_000).toFixed(1)}M`;
-  if (score >= 1000) return `${Math.round(score / 1000)}K`;
-  return String(Math.round(score));
-}
-
 function formatClicks(clicks: number): string {
   return `${clicks.toLocaleString("nl-NL")} clicks`;
 }
@@ -115,7 +109,7 @@ export function mergeSnoopArticles(
       ownLabel,
       categoryKey,
       rank: index + 1,
-      metricLabel: formatMetricScore(article.score),
+      // De DiscoverSnoop-score zegt de redactie niets (los getal zonder eenheid); niet tonen.
       dateLabel: formatDiscoverArticleDate(
         article.firstviewed ?? article.lastviewed
       ),

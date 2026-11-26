@@ -21,6 +21,8 @@ type BrandEvents = {
   conversionsLabel: string;
   /** GA4-dimensie op het uitklik-event die "native" markeert (BigSpark: uitklikken_type). */
   nativeTypeDimension?: string;
+  /** Of: aparte events die native uitklikken zijn (iCreate: clickout_native). Tellen ook als uitklik. */
+  nativeEvents?: string[];
   /** GA4-commissie wijkt af van de goedgekeurde netwerkcommissie (BigQuery-export). */
   revenueIsEstimate: boolean;
 };
@@ -45,7 +47,10 @@ export const CONVERSIE_BRAND_EVENTS: Record<SiteTitleId, BrandEvents> = {
       "clickout_affiliate_tekstlink",
       "clickout_prijsvergelijker",
       "clickout_mshop",
+      "clickout_outbound",
+      "clickout_native",
     ],
+    nativeEvents: ["clickout_native"],
     affiliateClicks: [],
     revenueLabel: "Shop-omzet",
     conversionsLabel: "Shop-aankopen",
@@ -249,6 +254,7 @@ export async function buildConversieArtikelen(
   }
 
   const outboundSet = new Set(cfg.outbound);
+  const nativeEventSet = new Set(cfg.nativeEvents ?? []);
   for (const r of eventReport?.data.rows ?? []) {
     const path = r.dimensionValues?.[0]?.value ?? "";
     const eventName = r.dimensionValues?.[1]?.value ?? "";
@@ -259,6 +265,7 @@ export async function buildConversieArtikelen(
     const count = num(r.metricValues?.[0]?.value);
     if (outboundSet.has(eventName)) row.outboundClicks += count;
     else row.affiliateClicks += count;
+    if (nativeEventSet.has(eventName)) row.nativeClicks += count;
   }
 
   for (const r of nativeReport?.data.rows ?? []) {
@@ -299,7 +306,7 @@ export async function buildConversieArtikelen(
       revenueLabel: cfg.revenueLabel,
       conversionsLabel: cfg.conversionsLabel,
       hasAffiliateClicks: cfg.affiliateClicks.length > 0,
-      hasNativeClicks: nativeReport != null,
+      hasNativeClicks: nativeReport != null || nativeEventSet.size > 0,
       revenueIsEstimate: cfg.revenueIsEstimate,
     },
     totals,

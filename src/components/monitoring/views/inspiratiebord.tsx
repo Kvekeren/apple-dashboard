@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { nl } from "date-fns/locale";
 import { ChevronDown, Pin, Search, Star, X } from "lucide-react";
@@ -230,6 +230,27 @@ function BoardColumn({
 }) {
   const shown = cards.slice(0, visible);
   const hasMore = cards.length > visible;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef(onLoadMore);
+  useEffect(() => {
+    loadMoreRef.current = onLoadMore;
+  }, [onLoadMore]);
+
+  // Automatisch bijladen zodra het einde van de kolom (bijna) in beeld komt. Opnieuw opzetten
+  // na elke uitbreiding: blijft de sentinel zichtbaar, dan laadt hij meteen het volgende blok.
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) loadMoreRef.current();
+      },
+      { root: scrollRef.current, rootMargin: "0px 0px 600px 0px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, shown.length]);
 
   return (
     <section
@@ -265,7 +286,10 @@ function BoardColumn({
           </div>
         ) : null}
       </header>
-      <div className="flex min-h-[280px] flex-1 flex-col gap-2.5 overflow-y-auto overflow-x-hidden rounded-b-[8px] border border-border bg-[var(--fnl-blue-pale)] p-2">
+      <div
+        ref={scrollRef}
+        className="flex min-h-[280px] flex-1 flex-col gap-2.5 overflow-y-auto overflow-x-hidden rounded-b-[8px] border border-border bg-[var(--fnl-blue-pale)] p-2"
+      >
         {authGate ? (
           <div className="flex flex-1 flex-col items-center justify-center px-3 py-8 text-center">
             <p className="text-xs text-muted-foreground">
@@ -291,15 +315,22 @@ function BoardColumn({
               />
             ))}
             {hasMore ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full rounded-[4px] text-primary hover:bg-white/80"
-                onClick={onLoadMore}
-              >
-                <ChevronDown className="size-4" />
-                Meer laden
-              </Button>
+              <div ref={sentinelRef} className="flex justify-center py-1">
+                {/* Vangnet als automatisch laden niet werkt (bijv. oude browser). */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-[4px] text-xs text-muted-foreground hover:bg-white/80"
+                  onClick={onLoadMore}
+                >
+                  <ChevronDown className="size-4" />
+                  Meer laden
+                </Button>
+              </div>
+            ) : shown.length > BOARD_INITIAL ? (
+              <p className="py-1 text-center text-[11px] text-muted-foreground">
+                Alle {shown.length} artikelen getoond
+              </p>
             ) : null}
           </>
         )}
